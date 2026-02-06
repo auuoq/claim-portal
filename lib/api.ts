@@ -25,7 +25,11 @@ export interface ClaimResponse {
 // Fetch insurance packages and document types
 export async function fetchInsuranceInfo(): Promise<InfoResponse> {
     try {
-        const response = await fetch(`${API_BASE_URL}/info`);
+        const response = await fetch(`${API_BASE_URL}/info`, {
+            headers: {
+                'ngrok-skip-browser-warning': '69420',
+            },
+        });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -90,6 +94,7 @@ export async function submitClaim(data: {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': '69420',
             },
             body: JSON.stringify(payload)
         });
