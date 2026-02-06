@@ -321,6 +321,26 @@ export default function Home() {
         packageName={previewModal.name}
         previewContent={previewModal.content}
       />
+
+      {/* Loading Overlay for Calculation */}
+      {isCalculating && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 backdrop-blur-md animate-fadeIn">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-teal-100 border-t-teal-500 rounded-full animate-spin"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg className="w-8 h-8 text-teal-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
+          <h2 className="mt-6 text-xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+            Đang thẩm định hồ sơ...
+          </h2>
+          <p className="mt-2 text-gray-500 animate-pulse">
+            Vui lòng đợi trong giây lát, quá trình này có thể mất vài giây.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
