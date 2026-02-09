@@ -9,8 +9,8 @@ import DocumentUploadSection from '@/components/DocumentUploadSection';
 import CalculateButton from '@/components/CalculateButton';
 import ResultModal from '@/components/ResultModal';
 import PackagePreviewModal from '@/components/PackagePreviewModal';
-import { fetchInsuranceInfo, submitClaim } from '@/lib/api';
-import { updateFromAPI, INSURANCE_PACKAGES, InsuranceInfoData, InsurancePackageType, InsuranceContract, InsuranceCategory } from '@/lib/constants';
+import { fetchInsuranceInfo, fetchDocumentTypes, submitClaim } from '@/lib/api';
+import { updateFromAPI, updateDocumentTypesFromAPI, INSURANCE_PACKAGES, DOCUMENT_TYPES, InsuranceInfoData, InsurancePackageType, InsuranceContract, InsuranceCategory } from '@/lib/constants';
 import { generateUniqueId, createFilePreviewUrl, isImageFile } from '@/lib/utils';
 
 interface FileWithPreview {
@@ -29,6 +29,7 @@ export default function Home() {
   const [showResultModal, setShowResultModal] = useState(false);
   const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string }>({});
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingDocumentTypes, setIsLoadingDocumentTypes] = useState(false);
   const [apiData, setApiData] = useState<InsuranceInfoData | null>(null);
   const [previewModal, setPreviewModal] = useState<{ isOpen: boolean; name: string; content: string }>({
     isOpen: false,
@@ -68,9 +69,23 @@ export default function Home() {
     setUploadedDocuments({});
   };
 
-  const handleTreatmentTypeSelect = (type: string) => {
+  const handleTreatmentTypeSelect = async (type: string) => {
     setTreatmentType(type);
     setUploadedDocuments({});
+
+    // Fetch document types for this treatment type
+    setIsLoadingDocumentTypes(true);
+    try {
+      const apiLoai = type === 'inpatient' ? 'noi_tru' : 'ngoai_tru';
+      const data = await fetchDocumentTypes(apiLoai);
+      if (data.status === 'success') {
+        updateDocumentTypesFromAPI(data.data, type as 'inpatient' | 'outpatient');
+      }
+    } catch (error) {
+      console.error('Failed to load document types:', error);
+    } finally {
+      setIsLoadingDocumentTypes(false);
+    }
   };
 
   const handleFilesAdd = (documentTypeId: string, files: File[]) => {
@@ -174,6 +189,17 @@ export default function Home() {
   const canProceedToStep2 = isPackageSelectionComplete;
   const canProceedToStep3 = canProceedToStep2 && treatmentType;
 
+  const requiredDocTypes = (treatmentType && DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES])
+    ? DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES].filter((d: any) => d.required).map((d: any) => d.id)
+    : [];
+
+  const canCalculateClaim = canProceedToStep3 &&
+    !isLoadingDocumentTypes &&
+    requiredDocTypes.length > 0 &&
+    requiredDocTypes.every((id: string) =>
+      uploadedDocuments[id] && uploadedDocuments[id].length > 0
+    );
+
   const handleNext = () => {
     if (currentStep === 1 && canProceedToStep2) {
       setCurrentStep(2);
@@ -267,6 +293,7 @@ export default function Home() {
                       uploadedDocuments={uploadedDocuments}
                       onFilesAdd={handleFilesAdd}
                       onFileRemove={handleFileRemove}
+                      isLoading={isLoadingDocumentTypes}
                     />
                   </div>
                 )}
@@ -307,7 +334,7 @@ export default function Home() {
                   </button>
                 ) : (
                   <CalculateButton
-                    disabled={!hasUploadedFiles}
+                    disabled={!canCalculateClaim}
                     loading={isCalculating}
                     onClick={handleCalculate}
                   />

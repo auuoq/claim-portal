@@ -24,14 +24,24 @@ export interface InsuranceContract {
   cac_goi: InsuranceCategory[];
 }
 
+export interface DocumentTypeInfo {
+  bat_buoc: boolean;
+  mo_ta: string;
+}
+
 export interface InsuranceInfoData {
   hop_dong: InsuranceContract[];
-  giay_to: Record<string, string>;
 }
 
 // Default empty - will be loaded from API
 export let INSURANCE_PACKAGES: InsurancePackageType[] = [];
-export let DOCUMENT_TYPES: Record<string, { id: string; label: string }[]> = {};
+export interface DocumentType {
+  id: string;
+  label: string;
+  required: boolean;
+  description: string;
+}
+export let DOCUMENT_TYPES: Record<string, DocumentType[]> = {};
 
 // File validation constants
 export const FILE_VALIDATION = {
@@ -70,15 +80,44 @@ export function updateFromAPI(data: InsuranceInfoData) {
         : undefined
     };
   });
+}
 
-  const docTypesArray = Object.entries(data.giay_to).map(([id, label]) => ({
-    id,
-    label
-  }));
+// Function to update document types from its own API
+export function updateDocumentTypesFromAPI(data: Record<string, DocumentTypeInfo>, loai: 'inpatient' | 'outpatient') {
+  const docTypesArray = Object.entries(data).map(([id, info]) => {
+    // Extract label from description (everything before the first " - " or " / ")
+    // Looking at the example: "Chi phí trước nhập viện / Chi phí ngoại trú - ..."
+    // It seems " / " or " - " can be delimiters.
+    const parts = info.mo_ta.split(' - ');
+    let label = parts.length > 1 ? parts[0] : id;
+
+    // Further split by / if needed
+    if (label.includes(' / ')) {
+      const subParts = label.split(' / ');
+      // Choose based on loai? Or just keep both.
+      // Usually the first part is more general or specific to the type.
+      // For now let's just keep the hyphen split as it's cleaner in the provided example.
+    }
+
+    if (!parts.length || parts.length === 1) {
+      label = id.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+
+    const description = parts.length > 1
+      ? parts.slice(1).join(' - ')
+      : info.mo_ta;
+
+    return {
+      id,
+      label,
+      required: info.bat_buoc,
+      description
+    };
+  });
 
   DOCUMENT_TYPES = {
-    inpatient: docTypesArray,
-    outpatient: docTypesArray
+    ...DOCUMENT_TYPES,
+    [loai]: docTypesArray
   };
 }
 

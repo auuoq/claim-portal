@@ -9,10 +9,17 @@ export interface InsurancePackage {
     }[];
 }
 
+export interface DocumentTypesResponse {
+    status: string;
+    data: Record<string, {
+        bat_buoc: boolean;
+        mo_ta: string;
+    }>;
+}
+
 export interface InfoResponse {
     status: string;
     data: {
-        giay_to: Record<string, string>;
         hop_dong: InsurancePackage[];
     };
 }
@@ -22,7 +29,7 @@ export interface ClaimResponse {
     data: string; // Markdown content
 }
 
-// Fetch insurance packages and document types
+// Fetch insurance packages
 export async function fetchInsuranceInfo(): Promise<InfoResponse> {
     try {
         const response = await fetch(`${API_BASE_URL}/info`, {
@@ -37,6 +44,25 @@ export async function fetchInsuranceInfo(): Promise<InfoResponse> {
         return data;
     } catch (error) {
         console.error('Error fetching insurance info:', error);
+        throw error;
+    }
+}
+
+// Fetch document types based on treatment loai (ngoai_tru or noi_tru)
+export async function fetchDocumentTypes(loai: 'ngoai_tru' | 'noi_tru'): Promise<DocumentTypesResponse> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/document-types?loai=${loai}`, {
+            headers: {
+                'ngrok-skip-browser-warning': '69420',
+            },
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error fetching document types:', error);
         throw error;
     }
 }

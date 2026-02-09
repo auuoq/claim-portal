@@ -13,8 +13,8 @@ interface DocumentUploadItemProps {
     documentType: {
         id: string;
         label: string;
-        icon?: string;
-        required?: boolean;
+        required: boolean;
+        description: string;
     };
     files: FileWithPreview[];
     onFilesAdd: (documentTypeId: string, files: File[]) => void;
@@ -84,21 +84,35 @@ export default function DocumentUploadItem({
                             </svg>
                         ) : (
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
                         )}
                     </div>
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-800 font-medium">{documentType.label}</span>
-                            {documentType.required && (
-                                <span className="text-red-500 text-xs">*</span>
-                            )}
-                        </div>
-                        {hasFiles && (
-                            <span className="text-xs text-teal-600">
-                                {files.length} file
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-sm font-semibold text-gray-800 truncate">
+                                {documentType.label}
+                                {documentType.required && (
+                                    <span className="text-red-500 ml-1 font-bold" title="Trường bắt buộc">*</span>
+                                )}
                             </span>
+                        </div>
+                        <p className="text-xs text-gray-500 leading-relaxed mb-1">
+                            {documentType.description}
+                        </p>
+                        {hasFiles ? (
+                            <div className="flex items-center gap-1.5 animate-fadeIn">
+                                <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
+                                <span className="text-xs font-medium text-teal-600">
+                                    Đã tải {files.length} file
+                                </span>
+                            </div>
+                        ) : documentType.required && (
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
+                                <span className="text-[10px] font-medium text-red-500/80 uppercase tracking-tight">
+                                    Cần cung cấp để tiếp tục
+                                </span>
+                            </div>
                         )}
                     </div>
                 </div>
