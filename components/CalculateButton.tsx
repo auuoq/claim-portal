@@ -16,7 +16,7 @@ export default function CalculateButton({ disabled, loading, onClick }: Calculat
         transition-all duration-200 shadow-sm
         ${disabled || loading
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 hover:shadow-md'
+                    : 'bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700 hover:shadow-md'
                 }
       `}
         >

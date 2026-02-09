@@ -110,6 +110,13 @@ export default function Home() {
 
     setIsCalculating(true);
 
+    // Request notification permission if needed
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
     try {
       const selectedPkg = INSURANCE_PACKAGES.find((p: InsurancePackageType) => p.id === insurancePackage);
       const contractData = apiData.hop_dong.find((c: InsuranceContract) => c.ten === selectedPkg?.name);
@@ -131,6 +138,17 @@ export default function Home() {
 
       if (result.status === 'success') {
         setClaimResult({ markdown: result.data });
+        // Trigger notification when finished
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          const notification = new Notification('Thẩm định hoàn tất!', {
+            body: 'Kết quả thẩm định hồ sơ của bạn đã có. Nhấn để xem ngay.',
+            icon: '/favicon.ico'
+          });
+          notification.onclick = () => {
+            window.focus();
+            notification.close();
+          };
+        }
       } else {
         setClaimResult({ error: 'Có lỗi xảy ra khi xử lý yêu cầu' });
       }
@@ -174,20 +192,24 @@ export default function Home() {
     setPreviewModal({ isOpen: true, name, content });
   };
 
+  const handleCreateNewRequest = () => {
+    window.open(window.location.href, '_blank');
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 via-white to-teal-50 overflow-hidden text-gray-900">
       {/* Header - Fixed top */}
       <header className="flex-shrink-0 bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg z-50">
-        <div className="max-w-6xl mx-auto px-4 py-5">
+        <div className="max-w-6xl mx-auto px-4 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" />
+            <div className="bg-white p-2 rounded-lg shadow-sm">
+              <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-lg font-semibold leading-tight">Yêu cầu bồi thường bảo hiểm</h1>
-              <p className="text-teal-100 text-xs opacity-90">Hoàn thành 3 bước đơn giản</p>
+              <h1 className="text-xl font-bold tracking-tight">Yêu cầu bồi thường bảo hiểm</h1>
+              <p className="text-teal-100 text-xs font-medium opacity-90">Hoàn thành 3 bước đơn giản</p>
             </div>
           </div>
         </div>
@@ -324,11 +346,11 @@ export default function Home() {
 
       {/* Loading Overlay for Calculation */}
       {isCalculating && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 backdrop-blur-md animate-fadeIn">
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 backdrop-blur-md animate-fadeIn px-6 text-center">
           <div className="relative">
             <div className="w-20 h-20 border-4 border-teal-100 border-t-teal-500 rounded-full animate-spin"></div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <svg className="w-8 h-8 text-teal-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 text-teal-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
             </div>
@@ -336,9 +358,19 @@ export default function Home() {
           <h2 className="mt-6 text-xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
             Đang thẩm định hồ sơ...
           </h2>
-          <p className="mt-2 text-gray-500 animate-pulse">
-            Vui lòng đợi trong giây lát, quá trình này có thể mất vài giây.
+          <p className="mt-2 text-gray-500 animate-pulse max-w-md">
+            Vui lòng đợi trong giây lát, quá trình này có thể mất vài phút. Bạn có thể tạo yêu cầu mới trong khi chờ đợi.
           </p>
+
+          <button
+            onClick={handleCreateNewRequest}
+            className="mt-8 px-6 py-3 bg-white border-2 border-teal-600 text-teal-600 font-bold rounded-xl hover:bg-teal-50 transition-all shadow-sm hover:shadow-md flex items-center gap-2 group"
+          >
+            <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Tạo yêu cầu mới (Tab mới)
+          </button>
         </div>
       )}
     </div>
