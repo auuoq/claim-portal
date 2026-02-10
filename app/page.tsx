@@ -100,12 +100,24 @@ export default function Home() {
       ...prev,
       [documentTypeId]: [...(prev[documentTypeId] || []), ...filesWithPreview]
     }));
+
+    // Clear invalid status when user adds new files
+    setInvalidTypeLabels(prev => prev.filter(label => {
+      const docType = DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES]?.find(d => d.id === documentTypeId);
+      return label !== docType?.label;
+    }));
   };
 
   const handleFileRemove = (documentTypeId: string, fileId: string) => {
     setUploadedDocuments(prev => ({
       ...prev,
       [documentTypeId]: prev[documentTypeId].filter(f => f.id !== fileId)
+    }));
+
+    // Clear invalid status when user removes files
+    setInvalidTypeLabels(prev => prev.filter(label => {
+      const docType = DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES]?.find(d => d.id === documentTypeId);
+      return label !== docType?.label;
     }));
   };
 

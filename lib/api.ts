@@ -131,14 +131,6 @@ export async function submitClaim(data: {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        if (payload.ho_so["Bảng kê chi phí nằm viện"] || payload.ho_so["Giấy ra viện"]) {
-            return {
-                status: "success",
-                message: "Phát hiện tài liệu sai loại",
-                invalid_types: ["Bảng kê chi phí nằm viện", "Giấy ra viện"]
-            };
-        }
-
         const result = await response.json();
 
         console.group('📥 RESPONSE FROM API');
