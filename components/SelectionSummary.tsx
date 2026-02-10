@@ -57,7 +57,7 @@ export default function SelectionSummary({
                             <p className="text-xs text-gray-500">Loại điều trị</p>
                             <p className="text-sm font-medium text-gray-800">
                                 {treatmentType === 'inpatient' ? 'Nội trú' : 'Ngoại trú'}
-                            </p>
+                            </p>x``
                         </div>
                     </div>
                 )}

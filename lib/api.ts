@@ -26,7 +26,9 @@ export interface InfoResponse {
 
 export interface ClaimResponse {
     status: string;
-    data: string; // Markdown content
+    data?: string; // Markdown content
+    invalid_types?: string[];
+    message?: string;
 }
 
 // Fetch insurance packages
@@ -129,11 +131,22 @@ export async function submitClaim(data: {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        if (payload.ho_so["Bảng kê chi phí nằm viện"] || payload.ho_so["Giấy ra viện"]) {
+            return {
+                status: "success",
+                message: "Phát hiện tài liệu sai loại",
+                invalid_types: ["Bảng kê chi phí nằm viện", "Giấy ra viện"]
+            };
+        }
+
         const result = await response.json();
 
         console.group('📥 RESPONSE FROM API');
         console.log('Status:', result.status);
         console.log('Data length:', result.data?.length || 0);
+        if (result.invalid_types) {
+            console.warn('Invalid Types:', result.invalid_types);
+        }
         console.groupEnd();
 
         return result;

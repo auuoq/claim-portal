@@ -19,13 +19,15 @@ interface DocumentUploadItemProps {
     files: FileWithPreview[];
     onFilesAdd: (documentTypeId: string, files: File[]) => void;
     onFileRemove: (documentTypeId: string, fileId: string) => void;
+    isInvalid?: boolean;
 }
 
 export default function DocumentUploadItem({
     documentType,
     files,
     onFilesAdd,
-    onFileRemove
+    onFileRemove,
+    isInvalid
 }: DocumentUploadItemProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -70,7 +72,12 @@ export default function DocumentUploadItem({
     return (
         <div className={`
       p-4 rounded-lg border transition-all duration-200
-      ${hasFiles ? 'border-teal-200 bg-gradient-to-r from-teal-50/50 to-cyan-50/30' : 'border-gray-200 bg-white hover:border-gray-300'}
+      ${isInvalid
+                ? 'border-red-500 bg-red-50 shadow-[0_0_15px_rgba(239,68,68,0.1)]'
+                : hasFiles
+                    ? 'border-teal-200 bg-gradient-to-r from-teal-50/50 to-cyan-50/30'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+            }
     `}>
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 flex-1">
@@ -99,7 +106,14 @@ export default function DocumentUploadItem({
                         <p className="text-xs text-gray-500 leading-relaxed mb-1">
                             {documentType.description}
                         </p>
-                        {hasFiles ? (
+                        {isInvalid ? (
+                            <div className="flex items-center gap-1.5 animate-pulse">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                <span className="text-xs font-bold text-red-600 uppercase tracking-tight">
+                                    Tài liệu không hợp lệ
+                                </span>
+                            </div>
+                        ) : hasFiles ? (
                             <div className="flex items-center gap-1.5 animate-fadeIn">
                                 <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
                                 <span className="text-xs font-medium text-teal-600">
@@ -119,7 +133,11 @@ export default function DocumentUploadItem({
 
                 <button
                     onClick={handleUploadClick}
-                    className="px-3 py-1.5 text-xs font-medium border border-teal-500 text-teal-600 rounded-md hover:bg-teal-50 transition-colors duration-200 flex items-center gap-1.5"
+                    className={`px-3 py-1.5 text-xs font-medium border rounded-md transition-colors duration-200 flex items-center gap-1.5
+                        ${isInvalid
+                            ? 'border-red-500 text-red-600 hover:bg-red-100 shadow-sm'
+                            : 'border-teal-500 text-teal-600 hover:bg-teal-50'
+                        }`}
                 >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />

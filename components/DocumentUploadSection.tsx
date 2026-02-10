@@ -15,6 +15,7 @@ interface DocumentUploadSectionProps {
     onFilesAdd: (documentTypeId: string, files: File[]) => void;
     onFileRemove: (documentTypeId: string, fileId: string) => void;
     isLoading?: boolean;
+    invalidTypeLabels?: string[];
 }
 
 export default function DocumentUploadSection({
@@ -22,7 +23,8 @@ export default function DocumentUploadSection({
     uploadedDocuments,
     onFilesAdd,
     onFileRemove,
-    isLoading
+    isLoading,
+    invalidTypeLabels = []
 }: DocumentUploadSectionProps) {
     const documentTypes = DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES] || [];
 
@@ -67,6 +69,7 @@ export default function DocumentUploadSection({
                         files={uploadedDocuments[docType.id] || []}
                         onFilesAdd={onFilesAdd}
                         onFileRemove={onFileRemove}
+                        isInvalid={invalidTypeLabels.includes(docType.label)}
                     />
                 ))}
             </div>

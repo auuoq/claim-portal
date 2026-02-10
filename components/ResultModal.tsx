@@ -9,9 +9,10 @@ interface ResultModalProps {
     onClose: () => void;
     markdownContent?: string;
     error?: string;
+    invalid_types?: string[];
 }
 
-export default function ResultModal({ isOpen, onClose, markdownContent, error }: ResultModalProps) {
+export default function ResultModal({ isOpen, onClose, markdownContent, error, invalid_types }: ResultModalProps) {
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -58,7 +59,17 @@ export default function ResultModal({ isOpen, onClose, markdownContent, error }:
                                 </svg>
                             </div>
                             <h4 className="text-xl font-bold text-gray-800 mb-2">Có lỗi xảy ra</h4>
-                            <p className="text-gray-600">{error}</p>
+                            <p className="text-gray-600 mb-4">{error}</p>
+                            {invalid_types && invalid_types.length > 0 && (
+                                <div className="mt-4 bg-red-50 border border-red-100 rounded-xl p-4 max-w-md mx-auto">
+                                    <p className="text-red-700 font-semibold mb-2">Danh sách tài liệu không hợp lệ:</p>
+                                    <ul className="text-red-600 text-sm space-y-1 text-left list-disc list-inside">
+                                        {invalid_types.map((type: string, index: number) => (
+                                            <li key={index}>{type}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                     ) : markdownContent ? (
                         // Success state with markdown

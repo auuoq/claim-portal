@@ -27,9 +27,10 @@ export default function Home() {
   const [uploadedDocuments, setUploadedDocuments] = useState<Record<string, FileWithPreview[]>>({});
   const [isCalculating, setIsCalculating] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
-  const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string }>({});
+  const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string; invalid_types?: string[] }>({});
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingDocumentTypes, setIsLoadingDocumentTypes] = useState(false);
+  const [invalidTypeLabels, setInvalidTypeLabels] = useState<string[]>([]);
   const [apiData, setApiData] = useState<InsuranceInfoData | null>(null);
   const [previewModal, setPreviewModal] = useState<{ isOpen: boolean; name: string; content: string }>({
     isOpen: false,
@@ -152,20 +153,30 @@ export default function Home() {
       });
 
       if (result.status === 'success') {
-        setClaimResult({ markdown: result.data });
-        // Trigger notification when finished
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-          const notification = new Notification('Thẩm định hoàn tất!', {
-            body: 'Kết quả thẩm định hồ sơ của bạn đã có. Nhấn để xem ngay.',
-            icon: '/favicon.ico'
+        if (result.invalid_types && result.invalid_types.length > 0) {
+          setClaimResult({
+            error: result.message || 'Phát hiện tài liệu sai loại',
+            invalid_types: result.invalid_types
           });
-          notification.onclick = () => {
-            window.focus();
-            notification.close();
-          };
+          setInvalidTypeLabels(result.invalid_types);
+        } else {
+          setClaimResult({ markdown: result.data });
+          setInvalidTypeLabels([]);
+          // Trigger notification when finished
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            const notification = new Notification('Thẩm định hoàn tất!', {
+              body: 'Kết quả thẩm định hồ sơ của bạn đã có. Nhấn để xem ngay.',
+              icon: '/favicon.ico'
+            });
+            notification.onclick = () => {
+              window.focus();
+              notification.close();
+            };
+          }
         }
       } else {
         setClaimResult({ error: 'Có lỗi xảy ra khi xử lý yêu cầu' });
+        setInvalidTypeLabels([]);
       }
       setShowResultModal(true);
     } catch (error) {
@@ -294,6 +305,7 @@ export default function Home() {
                       onFilesAdd={handleFilesAdd}
                       onFileRemove={handleFileRemove}
                       isLoading={isLoadingDocumentTypes}
+                      invalidTypeLabels={invalidTypeLabels}
                     />
                   </div>
                 )}
@@ -361,6 +373,7 @@ export default function Home() {
         onClose={() => setShowResultModal(false)}
         markdownContent={claimResult.markdown}
         error={claimResult.error}
+        invalid_types={claimResult.invalid_types}
       />
 
       {/* Package Preview Modal */}
