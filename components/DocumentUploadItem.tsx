@@ -19,6 +19,7 @@ interface DocumentUploadItemProps {
     files: FileWithPreview[];
     onFilesAdd: (documentTypeId: string, files: File[]) => void;
     onFileRemove: (documentTypeId: string, fileId: string) => void;
+    onFilePreview?: (file: FileWithPreview) => void;
     isInvalid?: boolean;
 }
 
@@ -27,6 +28,7 @@ export default function DocumentUploadItem({
     files,
     onFilesAdd,
     onFileRemove,
+    onFilePreview,
     isInvalid
 }: DocumentUploadItemProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -161,7 +163,8 @@ export default function DocumentUploadItem({
                     {files.map((fileWithPreview) => (
                         <div
                             key={fileWithPreview.id}
-                            className="flex items-center gap-3 p-2.5 bg-white rounded-md border border-gray-100"
+                            onClick={() => onFilePreview?.(fileWithPreview)}
+                            className="flex items-center gap-3 p-2.5 bg-white rounded-md border border-gray-100 hover:border-teal-300 hover:shadow-sm transition-all cursor-pointer group/file"
                         >
                             {/* Preview */}
                             <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-50 flex-shrink-0">
@@ -190,8 +193,11 @@ export default function DocumentUploadItem({
 
                             {/* Remove button */}
                             <button
-                                onClick={() => onFileRemove(documentType.id, fileWithPreview.id)}
-                                className="w-6 h-6 rounded-full hover:bg-red-50 text-red-500 flex items-center justify-center transition-colors duration-200 text-sm"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onFileRemove(documentType.id, fileWithPreview.id);
+                                }}
+                                className="w-6 h-6 rounded-full hover:bg-red-50 text-red-500 flex items-center justify-center transition-colors duration-200 text-sm opacity-0 group-hover/file:opacity-100"
                                 title="Xóa file"
                             >
                                 ×

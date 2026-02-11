@@ -14,6 +14,7 @@ interface DocumentUploadSectionProps {
     uploadedDocuments: Record<string, FileWithPreview[]>;
     onFilesAdd: (documentTypeId: string, files: File[]) => void;
     onFileRemove: (documentTypeId: string, fileId: string) => void;
+    onFilePreview?: (file: FileWithPreview) => void;
     isLoading?: boolean;
     invalidTypeLabels?: string[];
 }
@@ -23,6 +24,7 @@ export default function DocumentUploadSection({
     uploadedDocuments,
     onFilesAdd,
     onFileRemove,
+    onFilePreview,
     isLoading,
     invalidTypeLabels = []
 }: DocumentUploadSectionProps) {
@@ -69,6 +71,7 @@ export default function DocumentUploadSection({
                         files={uploadedDocuments[docType.id] || []}
                         onFilesAdd={onFilesAdd}
                         onFileRemove={onFileRemove}
+                        onFilePreview={onFilePreview}
                         isInvalid={invalidTypeLabels.includes(docType.label)}
                     />
                 ))}

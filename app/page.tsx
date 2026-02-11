@@ -9,6 +9,7 @@ import DocumentUploadSection from '@/components/DocumentUploadSection';
 import CalculateButton from '@/components/CalculateButton';
 import ResultModal from '@/components/ResultModal';
 import PackagePreviewModal from '@/components/PackagePreviewModal';
+import FilePreviewModal from '@/components/FilePreviewModal';
 import { fetchInsuranceInfo, fetchDocumentTypes, submitClaim } from '@/lib/api';
 import { updateFromAPI, updateDocumentTypesFromAPI, INSURANCE_PACKAGES, DOCUMENT_TYPES, InsuranceInfoData, InsurancePackageType, InsuranceContract, InsuranceCategory } from '@/lib/constants';
 import { generateUniqueId, createFilePreviewUrl, isImageFile } from '@/lib/utils';
@@ -36,6 +37,11 @@ export default function Home() {
     isOpen: false,
     name: '',
     content: ''
+  });
+  const [previewFile, setPreviewFile] = useState<{ isOpen: boolean; name: string; url?: string; isImage: boolean }>({
+    isOpen: false,
+    name: '',
+    isImage: false
   });
 
   // Load insurance packages from API on mount
@@ -245,6 +251,15 @@ export default function Home() {
     window.open(window.location.href, '_blank');
   };
 
+  const handleFilePreview = (file: FileWithPreview) => {
+    setPreviewFile({
+      isOpen: true,
+      name: file.file.name,
+      url: file.previewUrl || URL.createObjectURL(file.file),
+      isImage: isImageFile(file.file)
+    });
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 via-white to-teal-50 overflow-hidden text-gray-900">
       {/* Header - Fixed top */}
@@ -316,6 +331,7 @@ export default function Home() {
                       uploadedDocuments={uploadedDocuments}
                       onFilesAdd={handleFilesAdd}
                       onFileRemove={handleFileRemove}
+                      onFilePreview={handleFilePreview}
                       isLoading={isLoadingDocumentTypes}
                       invalidTypeLabels={invalidTypeLabels}
                     />
@@ -394,6 +410,14 @@ export default function Home() {
         onClose={() => setPreviewModal({ ...previewModal, isOpen: false })}
         packageName={previewModal.name}
         previewContent={previewModal.content}
+      />
+
+      <FilePreviewModal
+        isOpen={previewFile.isOpen}
+        onClose={() => setPreviewFile({ ...previewFile, isOpen: false })}
+        fileName={previewFile.name}
+        fileUrl={previewFile.url}
+        isImage={previewFile.isImage}
       />
 
       {/* Loading Overlay for Calculation */}
