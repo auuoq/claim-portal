@@ -226,12 +226,17 @@ export default function Home() {
     ? DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES].filter((d: any) => d.required).map((d: any) => d.id)
     : [];
 
+  // Can calculate claim if:
+  // 1. All required documents are uploaded (if there are any required)
+  // 2. OR if there are no required documents, at least one file is uploaded
+  const allRequiredUploaded = requiredDocTypes.every((id: string) =>
+    uploadedDocuments[id] && uploadedDocuments[id].length > 0
+  );
+  const hasAnyFiles = Object.values(uploadedDocuments).some(files => files.length > 0);
+
   const canCalculateClaim = canProceedToStep3 &&
     !isLoadingDocumentTypes &&
-    requiredDocTypes.length > 0 &&
-    requiredDocTypes.every((id: string) =>
-      uploadedDocuments[id] && uploadedDocuments[id].length > 0
-    );
+    (requiredDocTypes.length > 0 ? allRequiredUploaded : hasAnyFiles);
 
   const handleNext = () => {
     if (currentStep === 1 && canProceedToStep2) {
