@@ -62,6 +62,13 @@ export default function FilePreviewModal({
                             alt={fileName}
                             className="max-w-full max-h-[85vh] object-contain"
                         />
+                    ) : fileUrl ? (
+                        // PDF Preview
+                        <iframe
+                            src={fileUrl}
+                            className="w-full h-[85vh]"
+                            title={fileName}
+                        />
                     ) : (
                         <div className="p-12 text-center">
                             <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-gray-400">
@@ -69,9 +76,9 @@ export default function FilePreviewModal({
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                 </svg>
                             </div>
-                            <h4 className="text-lg font-semibold text-gray-800">Xem trước tài liệu</h4>
+                            <h4 className="text-lg font-semibold text-gray-800">Không thể xem trước</h4>
                             <p className="text-gray-500 mt-2 max-w-xs mx-auto">
-                                Tài liệu này (PDF hoặc khác) hiện chỉ hỗ trợ tải lên. Bạn có thể xem trên máy tính của mình.
+                                Không thể tải file để xem trước.
                             </p>
                         </div>
                     )}

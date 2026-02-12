@@ -11,7 +11,7 @@ import ResultModal from '@/components/ResultModal';
 import PackagePreviewModal from '@/components/PackagePreviewModal';
 import FilePreviewModal from '@/components/FilePreviewModal';
 import { fetchInsuranceInfo, fetchDocumentTypes, submitClaim } from '@/lib/api';
-import { updateFromAPI, updateDocumentTypesFromAPI, INSURANCE_PACKAGES, DOCUMENT_TYPES, InsuranceInfoData, InsurancePackageType, InsuranceContract, InsuranceCategory } from '@/lib/constants';
+import { updateFromAPI, updateDocumentTypesFromAPI, INSURANCE_PACKAGES, DOCUMENT_TYPES, TREATMENT_TYPES, InsuranceInfoData, InsurancePackageType, InsuranceContract, InsuranceCategory } from '@/lib/constants';
 import { generateUniqueId, createFilePreviewUrl, isImageFile } from '@/lib/utils';
 
 interface FileWithPreview {
@@ -79,14 +79,14 @@ export default function Home() {
   const handleTreatmentTypeSelect = async (type: string) => {
     setTreatmentType(type);
     setUploadedDocuments({});
+    setInvalidTypeLabels([]); // Clear invalid status when changing treatment type
 
-    // Fetch document types for this treatment type
+    // Fetch document types for this treatment type using the 'ma' code
     setIsLoadingDocumentTypes(true);
     try {
-      const apiLoai = type === 'inpatient' ? 'noi_tru' : 'ngoai_tru';
-      const data = await fetchDocumentTypes(apiLoai);
+      const data = await fetchDocumentTypes(type);
       if (data.status === 'success') {
-        updateDocumentTypesFromAPI(data.data, type as 'inpatient' | 'outpatient');
+        updateDocumentTypesFromAPI(data.data, type);
       }
     } catch (error) {
       console.error('Failed to load document types:', error);
@@ -163,10 +163,14 @@ export default function Home() {
         hoSo[doc.documentType] = doc.files;
       });
 
+      // Map treatment type to base category for API
+      const selectedTreatmentType = TREATMENT_TYPES.find(t => t.id === treatmentType);
+      const loaiDieuTri = selectedTreatmentType?.ma || treatmentType;
+
       const result = await submitClaim({
         hopDong: selectedPkg?.name || '',
         goi: packageData?.ten || '',
-        loai: treatmentType === 'inpatient' ? 'nội trú' : 'ngoại trú',
+        loai_dieu_tri: loaiDieuTri,
         hoSo
       });
 

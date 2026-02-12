@@ -29,7 +29,13 @@ export interface DocumentTypeInfo {
   mo_ta: string;
 }
 
+export interface TreatmentTypeData {
+  ma: string;
+  ten: string;
+}
+
 export interface InsuranceInfoData {
+  loai_dieu_tri: TreatmentTypeData[];
   hop_dong: InsuranceContract[];
 }
 
@@ -55,14 +61,24 @@ export const FILE_VALIDATION = {
   }
 };
 
-// Treatment types
-export const TREATMENT_TYPES = [
-  { id: 'inpatient', name: 'Nội trú', description: 'Điều trị nội trú tại bệnh viện' },
-  { id: 'outpatient', name: 'Ngoại trú', description: 'Khám và điều trị ngoại trú' }
-];
+// Treatment types - will be loaded from API
+export interface TreatmentType {
+  id: string;
+  name: string;
+  ma: string;
+}
+
+export let TREATMENT_TYPES: TreatmentType[] = [];
 
 // Function to update constants from API
 export function updateFromAPI(data: InsuranceInfoData) {
+  // Update treatment types
+  TREATMENT_TYPES = data.loai_dieu_tri.map((type) => ({
+    id: type.ma,
+    name: type.ten,
+    ma: type.ma
+  }));
+
   // Convert API format to our format
   INSURANCE_PACKAGES = data.hop_dong.map((contract, index) => {
     const hasSubOptions = contract.cac_goi && contract.cac_goi.length > 0;
@@ -83,41 +99,22 @@ export function updateFromAPI(data: InsuranceInfoData) {
 }
 
 // Function to update document types from its own API
-export function updateDocumentTypesFromAPI(data: Record<string, DocumentTypeInfo>, loai: 'inpatient' | 'outpatient') {
-  const docTypesArray = Object.entries(data).map(([id, info]) => {
-    // Extract label from description (everything before the first " - " or " / ")
-    // Looking at the example: "Chi phí trước nhập viện / Chi phí ngoại trú - ..."
-    // It seems " / " or " - " can be delimiters.
-    const parts = info.mo_ta.split(' - ');
-    let label = parts.length > 1 ? parts[0] : id;
-
-    // Further split by / if needed
-    if (label.includes(' / ')) {
-      const subParts = label.split(' / ');
-      // Choose based on loai? Or just keep both.
-      // Usually the first part is more general or specific to the type.
-      // For now let's just keep the hyphen split as it's cleaner in the provided example.
-    }
-
-    if (!parts.length || parts.length === 1) {
-      label = id.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    }
-
-    const description = parts.length > 1
-      ? parts.slice(1).join(' - ')
-      : info.mo_ta;
-
-    return {
-      id,
-      label,
-      required: info.bat_buoc,
-      description
-    };
-  });
+export function updateDocumentTypesFromAPI(data: Array<{
+  ma: string;
+  ten: string;
+  mo_ta: string;
+  bat_buoc: boolean;
+}>, treatmentTypeId: string) {
+  const docTypesArray = data.map((docType) => ({
+    id: docType.ma,
+    label: docType.ten,
+    required: docType.bat_buoc,
+    description: docType.mo_ta
+  }));
 
   DOCUMENT_TYPES = {
     ...DOCUMENT_TYPES,
-    [loai]: docTypesArray
+    [treatmentTypeId]: docTypesArray
   };
 }
 

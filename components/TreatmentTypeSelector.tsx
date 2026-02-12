@@ -25,7 +25,7 @@ export default function TreatmentTypeSelector({ selectedType, onSelect }: Treatm
                             }
                         `}
                     >
-                        {type.name} ({type.id === 'inpatient' ? 'Inpatient' : 'Outpatient'})
+                        {type.name}
                     </button>
                 ))}
             </div>

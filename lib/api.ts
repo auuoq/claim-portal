@@ -1,6 +1,11 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gamic-quiescent-juliane.ngrok-free.dev/api';
 
 // Types for API responses
+export interface TreatmentType {
+    ma: string;
+    ten: string;
+}
+
 export interface InsurancePackage {
     ten: string;
     cac_goi: {
@@ -9,17 +14,22 @@ export interface InsurancePackage {
     }[];
 }
 
+export interface DocumentType {
+    ma: string;
+    ten: string;
+    mo_ta: string;
+    bat_buoc: boolean;
+}
+
 export interface DocumentTypesResponse {
     status: string;
-    data: Record<string, {
-        bat_buoc: boolean;
-        mo_ta: string;
-    }>;
+    data: DocumentType[];
 }
 
 export interface InfoResponse {
     status: string;
     data: {
+        loai_dieu_tri: TreatmentType[];
         hop_dong: InsurancePackage[];
     };
 }
@@ -50,10 +60,10 @@ export async function fetchInsuranceInfo(): Promise<InfoResponse> {
     }
 }
 
-// Fetch document types based on treatment loai (ngoai_tru or noi_tru)
-export async function fetchDocumentTypes(loai: 'ngoai_tru' | 'noi_tru'): Promise<DocumentTypesResponse> {
+// Fetch document types based on treatment type code (ma)
+export async function fetchDocumentTypes(ma: string): Promise<DocumentTypesResponse> {
     try {
-        const response = await fetch(`${API_BASE_URL}/document-types?loai=${loai}`, {
+        const response = await fetch(`${API_BASE_URL}/document-types?ma=${ma}`, {
             headers: {
                 'ngrok-skip-browser-warning': '69420',
             },
@@ -83,7 +93,7 @@ function fileToBase64(file: File): Promise<string> {
 export async function submitClaim(data: {
     hopDong: string;
     goi: string;
-    loai: string;
+    loai_dieu_tri: string;
     hoSo: Record<string, File[]>;
 }): Promise<ClaimResponse> {
     try {
@@ -101,7 +111,7 @@ export async function submitClaim(data: {
                 ten: data.hopDong,
                 goi: data.goi
             },
-            loai: data.loai,
+            loai_dieu_tri: data.loai_dieu_tri,
             ho_so: hoSoBase64
         };
 

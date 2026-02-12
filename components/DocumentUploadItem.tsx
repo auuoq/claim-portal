@@ -98,7 +98,7 @@ export default function DocumentUploadItem({
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="text-sm font-semibold text-gray-800 truncate">
+                            <span className="text-sm font-semibold text-gray-800">
                                 {documentType.label}
                                 {documentType.required && (
                                     <span className="text-red-500 ml-1 font-bold" title="Trường bắt buộc">*</span>

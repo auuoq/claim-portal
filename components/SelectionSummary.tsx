@@ -1,4 +1,4 @@
-import { INSURANCE_PACKAGES, InsurancePackageType, InsuranceSubOption } from '@/lib/constants';
+import { INSURANCE_PACKAGES, TREATMENT_TYPES, InsurancePackageType, InsuranceSubOption } from '@/lib/constants';
 
 interface SelectionSummaryProps {
     insurancePackage: string | null;
@@ -15,6 +15,7 @@ export default function SelectionSummary({
 }: SelectionSummaryProps) {
     const packageData = INSURANCE_PACKAGES.find((p: InsurancePackageType) => p.id === insurancePackage);
     const subOptionData = packageData?.subOptions?.find((s: InsuranceSubOption) => s.id === insuranceSubOption);
+    const treatmentTypeData = TREATMENT_TYPES.find(t => t.id === treatmentType);
 
     return (
         <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-5 border border-teal-100">
@@ -56,8 +57,8 @@ export default function SelectionSummary({
                         <div className="flex-1">
                             <p className="text-xs text-gray-500">Loại điều trị</p>
                             <p className="text-sm font-medium text-gray-800">
-                                {treatmentType === 'inpatient' ? 'Nội trú' : 'Ngoại trú'}
-                            </p>x``
+                                {treatmentTypeData?.name || treatmentType}
+                            </p>
                         </div>
                     </div>
                 )}
