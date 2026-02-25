@@ -112,15 +112,17 @@ export async function submitClaim(
         hopDong: string;
         goi: string;
         loai_dieu_tri: string;
-        hoSo: Record<string, File[]>;
+        files: File[];
     },
     callbacks: ClaimStreamCallbacks
 ): Promise<void> {
-    // Convert files to base64
-    const hoSoBase64: Record<string, string[]> = {};
-    for (const [docType, files] of Object.entries(data.hoSo)) {
-        hoSoBase64[docType] = await Promise.all(files.map(file => fileToBase64(file)));
-    }
+    // Convert all files to base64 with their original names
+    const filesBase64 = await Promise.all(
+        data.files.map(async (file) => ({
+            name: file.name,
+            data: await fileToBase64(file)
+        }))
+    );
 
     const payload = {
         hop_dong: {
@@ -128,19 +130,21 @@ export async function submitClaim(
             goi: data.goi
         },
         loai_dieu_tri: data.loai_dieu_tri,
-        ho_so: hoSoBase64
+        ho_so: {
+            files: filesBase64
+        }
     };
 
     console.group('📤 SENDING TO API (SSE)');
     console.log('URL:', `${API_BASE_URL}/claim`);
     console.log('Payload (truncated):', {
         ...payload,
-        ho_so: Object.fromEntries(
-            Object.entries(hoSoBase64).map(([key, files]) => [
-                key,
-                files.map(f => `${f.substring(0, 50)}... (${f.length} chars)`)
-            ])
-        )
+        ho_so: {
+            files: filesBase64.map(f => ({
+                name: f.name,
+                data: `${f.data.substring(0, 50)}... (${f.data.length} chars)`
+            }))
+        }
     });
     console.groupEnd();
 

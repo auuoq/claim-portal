@@ -33,13 +33,12 @@ export default function Home() {
   const [insurancePackage, setInsurancePackage] = useState<string | null>(null);
   const [insuranceSubOption, setInsuranceSubOption] = useState<string | null>(null);
   const [treatmentType, setTreatmentType] = useState<string | null>(null);
-  const [uploadedDocuments, setUploadedDocuments] = useState<Record<string, FileWithPreview[]>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<FileWithPreview[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string; documentErrors?: { name: string; errors: string[] }[] }>({});
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingDocumentTypes, setIsLoadingDocumentTypes] = useState(false);
-  const [invalidTypeLabels, setInvalidTypeLabels] = useState<string[]>([]);
   const [apiData, setApiData] = useState<InsuranceInfoData | null>(null);
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
   const [previewModal, setPreviewModal] = useState<{ isOpen: boolean; name: string; content: string }>({
@@ -76,19 +75,18 @@ export default function Home() {
     setInsurancePackage(packageId);
     setInsuranceSubOption(null);
     setTreatmentType(null);
-    setUploadedDocuments({});
+    setUploadedFiles([]);
   };
 
   const handleInsuranceSubOptionSelect = (subOptionId: string) => {
     setInsuranceSubOption(subOptionId);
     setTreatmentType(null);
-    setUploadedDocuments({});
+    setUploadedFiles([]);
   };
 
   const handleTreatmentTypeSelect = async (type: string) => {
     setTreatmentType(type);
-    setUploadedDocuments({});
-    setInvalidTypeLabels([]);
+    setUploadedFiles([]);
 
     setIsLoadingDocumentTypes(true);
     try {
@@ -103,47 +101,23 @@ export default function Home() {
     }
   };
 
-  const handleFilesAdd = (documentTypeId: string, files: File[]) => {
+  const handleFilesAdd = (files: File[]) => {
     const filesWithPreview: FileWithPreview[] = files.map(file => ({
       id: generateUniqueId(),
       file,
       previewUrl: isImageFile(file) ? createFilePreviewUrl(file) : undefined
     }));
-
-    setUploadedDocuments(prev => ({
-      ...prev,
-      [documentTypeId]: [...(prev[documentTypeId] || []), ...filesWithPreview]
-    }));
-
-    setInvalidTypeLabels(prev => prev.filter(label => {
-      const docType = DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES]?.find(d => d.id === documentTypeId);
-      return label !== docType?.label;
-    }));
+    setUploadedFiles(prev => [...prev, ...filesWithPreview]);
   };
 
-  const handleFileRemove = (documentTypeId: string, fileId: string) => {
-    setUploadedDocuments(prev => ({
-      ...prev,
-      [documentTypeId]: prev[documentTypeId].filter(f => f.id !== fileId)
-    }));
-
-    setInvalidTypeLabels(prev => prev.filter(label => {
-      const docType = DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES]?.find(d => d.id === documentTypeId);
-      return label !== docType?.label;
-    }));
+  const handleFileRemove = (fileId: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
   };
 
   const handleCalculate = async () => {
     if (!treatmentType || !insurancePackage || !apiData) return;
 
-    const documents = Object.entries(uploadedDocuments)
-      .filter(([, files]) => files.length > 0)
-      .map(([documentType, files]) => ({
-        documentType,
-        files: files.map(f => f.file)
-      }));
-
-    if (documents.length === 0) {
+    if (uploadedFiles.length === 0) {
       alert('Vui lòng tải lên ít nhất một hồ sơ');
       return;
     }
@@ -164,11 +138,6 @@ export default function Home() {
         ? contractData?.cac_goi.find((g: InsuranceCategory) => g.ten === selectedPkg?.subOptions?.find((s) => s.id === insuranceSubOption)?.name)
         : null;
 
-      const hoSo: Record<string, File[]> = {};
-      documents.forEach(doc => {
-        hoSo[doc.documentType] = doc.files;
-      });
-
       const selectedTreatmentType = TREATMENT_TYPES.find(t => t.id === treatmentType);
       const loaiDieuTri = selectedTreatmentType?.ma || treatmentType;
 
@@ -181,7 +150,7 @@ export default function Home() {
           hopDong: selectedPkg?.name || '',
           goi: packageData?.ten || '',
           loai_dieu_tri: loaiDieuTri,
-          hoSo
+          files: uploadedFiles.map(f => f.file)
         },
         {
           onProgress: (message) => {
@@ -206,15 +175,12 @@ export default function Home() {
           onDone: () => {
             setIsCalculating(false);
             if (documentErrors.length > 0 && !resultMarkdown) {
-              // All documents failed
               setClaimResult({
                 error: 'Phát hiện tài liệu sai loại hoặc không hợp lệ',
                 documentErrors
               });
-              setInvalidTypeLabels(failedDocNames);
             } else if (resultMarkdown) {
               setClaimResult({ markdown: resultMarkdown, documentErrors: documentErrors.length > 0 ? documentErrors : undefined });
-              setInvalidTypeLabels([]);
               if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
                 const notification = new Notification('Thẩm định hoàn tất!', {
                   body: 'Kết quả thẩm định hồ sơ của bạn đã có. Nhấn để xem ngay.',
@@ -245,8 +211,8 @@ export default function Home() {
     }
   };
 
-  const hasUploadedFiles = Object.values(uploadedDocuments).some(files => files.length > 0);
-  const totalFileCount = Object.values(uploadedDocuments).reduce((sum, files) => sum + files.length, 0);
+  const hasUploadedFiles = uploadedFiles.length > 0;
+  const totalFileCount = uploadedFiles.length;
 
   const currentPkg = INSURANCE_PACKAGES.find((p: InsurancePackageType) => p.id === insurancePackage);
   const isPackageSelectionComplete = insurancePackage && (!currentPkg?.hasSubOptions || insuranceSubOption);
@@ -257,18 +223,7 @@ export default function Home() {
   const canProceedToStep2 = isPackageSelectionComplete;
   const canProceedToStep3 = canProceedToStep2 && treatmentType;
 
-  const requiredDocTypes = (treatmentType && DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES])
-    ? DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES].filter((d: any) => d.required).map((d: any) => d.id)
-    : [];
-
-  const allRequiredUploaded = requiredDocTypes.every((id: string) =>
-    uploadedDocuments[id] && uploadedDocuments[id].length > 0
-  );
-  const hasAnyFiles = Object.values(uploadedDocuments).some(files => files.length > 0);
-
-  const canCalculateClaim = canProceedToStep3 &&
-    !isLoadingDocumentTypes &&
-    (requiredDocTypes.length > 0 ? allRequiredUploaded : hasAnyFiles);
+  const canCalculateClaim = canProceedToStep3 && !isLoadingDocumentTypes && hasUploadedFiles;
 
   const handleNext = () => {
     if (currentStep === 1 && canProceedToStep2) {
@@ -367,12 +322,11 @@ export default function Home() {
                   <div className="animate-fadeIn">
                     <DocumentUploadSection
                       treatmentType={treatmentType!}
-                      uploadedDocuments={uploadedDocuments}
+                      uploadedFiles={uploadedFiles}
                       onFilesAdd={handleFilesAdd}
                       onFileRemove={handleFileRemove}
                       onFilePreview={handleFilePreview}
                       isLoading={isLoadingDocumentTypes}
-                      invalidTypeLabels={invalidTypeLabels}
                     />
                   </div>
                 )}
