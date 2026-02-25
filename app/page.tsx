@@ -20,6 +20,14 @@ interface FileWithPreview {
   previewUrl?: string;
 }
 
+// Processing step shown in loading overlay
+interface ProcessingStep {
+  type: 'progress' | 'document';
+  message: string;
+  status?: 'done' | 'fail' | 'loading';
+  errors?: string[];
+}
+
 export default function Home() {
   const [currentStep, setCurrentStep] = useState(1);
   const [insurancePackage, setInsurancePackage] = useState<string | null>(null);
@@ -28,11 +36,12 @@ export default function Home() {
   const [uploadedDocuments, setUploadedDocuments] = useState<Record<string, FileWithPreview[]>>({});
   const [isCalculating, setIsCalculating] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
-  const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string; invalid_types?: string[] }>({});
+  const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string; documentErrors?: { name: string; errors: string[] }[] }>({});
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingDocumentTypes, setIsLoadingDocumentTypes] = useState(false);
   const [invalidTypeLabels, setInvalidTypeLabels] = useState<string[]>([]);
   const [apiData, setApiData] = useState<InsuranceInfoData | null>(null);
+  const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
   const [previewModal, setPreviewModal] = useState<{ isOpen: boolean; name: string; content: string }>({
     isOpen: false,
     name: '',
@@ -79,9 +88,8 @@ export default function Home() {
   const handleTreatmentTypeSelect = async (type: string) => {
     setTreatmentType(type);
     setUploadedDocuments({});
-    setInvalidTypeLabels([]); // Clear invalid status when changing treatment type
+    setInvalidTypeLabels([]);
 
-    // Fetch document types for this treatment type using the 'ma' code
     setIsLoadingDocumentTypes(true);
     try {
       const data = await fetchDocumentTypes(type);
@@ -107,7 +115,6 @@ export default function Home() {
       [documentTypeId]: [...(prev[documentTypeId] || []), ...filesWithPreview]
     }));
 
-    // Clear invalid status when user adds new files
     setInvalidTypeLabels(prev => prev.filter(label => {
       const docType = DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES]?.find(d => d.id === documentTypeId);
       return label !== docType?.label;
@@ -120,7 +127,6 @@ export default function Home() {
       [documentTypeId]: prev[documentTypeId].filter(f => f.id !== fileId)
     }));
 
-    // Clear invalid status when user removes files
     setInvalidTypeLabels(prev => prev.filter(label => {
       const docType = DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES]?.find(d => d.id === documentTypeId);
       return label !== docType?.label;
@@ -143,8 +149,8 @@ export default function Home() {
     }
 
     setIsCalculating(true);
+    setProcessingSteps([]);
 
-    // Request notification permission if needed
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'default') {
         Notification.requestPermission();
@@ -163,50 +169,79 @@ export default function Home() {
         hoSo[doc.documentType] = doc.files;
       });
 
-      // Map treatment type to base category for API
       const selectedTreatmentType = TREATMENT_TYPES.find(t => t.id === treatmentType);
       const loaiDieuTri = selectedTreatmentType?.ma || treatmentType;
 
-      const result = await submitClaim({
-        hopDong: selectedPkg?.name || '',
-        goi: packageData?.ten || '',
-        loai_dieu_tri: loaiDieuTri,
-        hoSo
-      });
+      let resultMarkdown = '';
+      const documentErrors: { name: string; errors: string[] }[] = [];
+      const failedDocNames: string[] = [];
 
-      if (result.status === 'success') {
-        if (result.invalid_types && result.invalid_types.length > 0) {
-          setClaimResult({
-            error: result.message || 'Phát hiện tài liệu sai loại',
-            invalid_types: result.invalid_types
-          });
-          setInvalidTypeLabels(result.invalid_types);
-        } else {
-          setClaimResult({ markdown: result.data });
-          setInvalidTypeLabels([]);
-          // Trigger notification when finished
-          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-            const notification = new Notification('Thẩm định hoàn tất!', {
-              body: 'Kết quả thẩm định hồ sơ của bạn đã có. Nhấn để xem ngay.',
-              icon: '/favicon.ico'
-            });
-            notification.onclick = () => {
-              window.focus();
-              notification.close();
-            };
+      await submitClaim(
+        {
+          hopDong: selectedPkg?.name || '',
+          goi: packageData?.ten || '',
+          loai_dieu_tri: loaiDieuTri,
+          hoSo
+        },
+        {
+          onProgress: (message) => {
+            setProcessingSteps(prev => [
+              ...prev,
+              { type: 'progress', message, status: 'loading' }
+            ]);
+          },
+          onDocument: (name, status, errors) => {
+            setProcessingSteps(prev => [
+              ...prev,
+              { type: 'document', message: name, status, errors }
+            ]);
+            if (status === 'fail' && errors) {
+              documentErrors.push({ name, errors });
+              failedDocNames.push(name);
+            }
+          },
+          onResult: (markdown) => {
+            resultMarkdown = markdown;
+          },
+          onDone: () => {
+            setIsCalculating(false);
+            if (documentErrors.length > 0 && !resultMarkdown) {
+              // All documents failed
+              setClaimResult({
+                error: 'Phát hiện tài liệu sai loại hoặc không hợp lệ',
+                documentErrors
+              });
+              setInvalidTypeLabels(failedDocNames);
+            } else if (resultMarkdown) {
+              setClaimResult({ markdown: resultMarkdown, documentErrors: documentErrors.length > 0 ? documentErrors : undefined });
+              setInvalidTypeLabels([]);
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                const notification = new Notification('Thẩm định hoàn tất!', {
+                  body: 'Kết quả thẩm định hồ sơ của bạn đã có. Nhấn để xem ngay.',
+                  icon: '/favicon.ico'
+                });
+                notification.onclick = () => {
+                  window.focus();
+                  notification.close();
+                };
+              }
+            } else {
+              setClaimResult({ error: 'Không nhận được kết quả từ hệ thống' });
+            }
+            setShowResultModal(true);
+          },
+          onError: (error) => {
+            setIsCalculating(false);
+            setClaimResult({ error });
+            setShowResultModal(true);
           }
         }
-      } else {
-        setClaimResult({ error: 'Có lỗi xảy ra khi xử lý yêu cầu' });
-        setInvalidTypeLabels([]);
-      }
-      setShowResultModal(true);
+      );
     } catch (error) {
       console.error('Error:', error);
+      setIsCalculating(false);
       setClaimResult({ error: 'Có lỗi xảy ra khi tính toán claim' });
       setShowResultModal(true);
-    } finally {
-      setIsCalculating(false);
     }
   };
 
@@ -226,9 +261,6 @@ export default function Home() {
     ? DOCUMENT_TYPES[treatmentType as keyof typeof DOCUMENT_TYPES].filter((d: any) => d.required).map((d: any) => d.id)
     : [];
 
-  // Can calculate claim if:
-  // 1. All required documents are uploaded (if there are any required)
-  // 2. OR if there are no required documents, at least one file is uploaded
   const allRequiredUploaded = requiredDocTypes.every((id: string) =>
     uploadedDocuments[id] && uploadedDocuments[id].length > 0
   );
@@ -271,7 +303,7 @@ export default function Home() {
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 via-white to-teal-50 overflow-hidden text-gray-900">
-      {/* Header - Fixed top */}
+      {/* Header */}
       <header className="flex-shrink-0 bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg z-50">
         <div className="max-w-6xl mx-auto px-4 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -299,9 +331,8 @@ export default function Home() {
       ) : (
         <main className="flex-1 overflow-hidden max-w-6xl w-full mx-auto px-4 py-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
-            {/* Form Area - Fixed with internal scroll */}
+            {/* Form Area */}
             <div className="lg:col-span-2 flex flex-col h-full bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-              {/* Step Indicator - Fixed top */}
               <div className="p-6 pb-2 border-b border-gray-50 flex-shrink-0 bg-white">
                 <StepIndicator
                   currentStep={currentStep}
@@ -310,7 +341,6 @@ export default function Home() {
                 />
               </div>
 
-              {/* Step Content - SCROLLABLE */}
               <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
                 {currentStep === 1 && (
                   <div className="animate-fadeIn">
@@ -348,7 +378,7 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Navigation Bar - Fixed bottom */}
+              {/* Navigation Bar */}
               <div className="p-6 pt-4 border-t border-gray-100 flex-shrink-0 flex justify-between bg-gray-50/50">
                 <button
                   onClick={handleBack}
@@ -391,7 +421,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Sidebar - Fixed */}
+            {/* Sidebar */}
             <div className="lg:col-span-1 hidden lg:block overflow-y-auto">
               <SelectionSummary
                 insurancePackage={insurancePackage}
@@ -410,7 +440,7 @@ export default function Home() {
         onClose={() => setShowResultModal(false)}
         markdownContent={claimResult.markdown}
         error={claimResult.error}
-        invalid_types={claimResult.invalid_types}
+        documentErrors={claimResult.documentErrors}
       />
 
       {/* Package Preview Modal */}
@@ -429,33 +459,93 @@ export default function Home() {
         isImage={previewFile.isImage}
       />
 
-      {/* Loading Overlay for Calculation */}
+      {/* Loading Overlay with SSE progress */}
       {isCalculating && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 backdrop-blur-md animate-fadeIn px-6 text-center">
-          <div className="relative">
-            <div className="w-20 h-20 border-4 border-teal-100 border-t-teal-500 rounded-full animate-spin"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <svg className="w-8 h-8 text-teal-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm animate-fadeIn px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+
+            {/* Header: current progress step */}
+            <div className="bg-gradient-to-r from-teal-500 to-cyan-500 px-6 pt-6 pb-5 text-white">
+              <div className="flex items-center gap-4">
+                <div className="relative flex-shrink-0">
+                  <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-teal-100 uppercase tracking-wider mb-0.5">Đang xử lý</p>
+                  <p className="text-sm font-semibold text-white leading-snug">
+                    {processingSteps.filter(s => s.type === 'progress').slice(-1)[0]?.message || 'Đang kết nối máy chủ...'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body: document checklist */}
+            <div className="px-5 py-4">
+              {processingSteps.some(s => s.type === 'document') && (
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Kiểm tra tài liệu</p>
+              )}
+
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                {processingSteps.filter(s => s.type === 'document').length === 0 && (
+                  <div className="flex items-center gap-3 py-3">
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin flex-shrink-0"></div>
+                    <span className="text-sm text-gray-400">Đang đọc hồ sơ...</span>
+                  </div>
+                )}
+                {processingSteps.filter(s => s.type === 'document').map((step, idx) => (
+                  <div key={idx} className={`flex items-start gap-3 rounded-xl px-3 py-2.5 ${step.status === 'fail' ? 'bg-red-50 border border-red-100' : 'bg-emerald-50 border border-emerald-100'
+                    }`}>
+                    <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${step.status === 'fail' ? 'bg-red-500' : 'bg-emerald-500'
+                      }`}>
+                      {step.status === 'done' ? (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold leading-snug ${step.status === 'fail' ? 'text-red-700' : 'text-emerald-700'
+                        }`}>
+                        {step.message}
+                      </p>
+                      {step.errors && step.errors.length > 0 && (
+                        <ul className="mt-1.5 space-y-1">
+                          {step.errors.map((err, i) => (
+                            <li key={i} className="text-xs text-red-500 flex items-start gap-1.5">
+                              <span className="flex-shrink-0">—</span>
+                              <span>{err}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 pb-5">
+              <button
+                onClick={handleCreateNewRequest}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-500 font-medium rounded-xl hover:bg-gray-100 transition-all text-sm flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Tạo yêu cầu mới (Tab mới)
+              </button>
             </div>
           </div>
-          <h2 className="mt-6 text-xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-            Đang thẩm định hồ sơ...
-          </h2>
-          <p className="mt-2 text-gray-500 animate-pulse max-w-md">
-            Vui lòng đợi trong giây lát, quá trình này có thể mất vài phút. Bạn có thể tạo yêu cầu mới trong khi chờ đợi.
-          </p>
-
-          <button
-            onClick={handleCreateNewRequest}
-            className="mt-8 px-6 py-3 bg-white border-2 border-teal-600 text-teal-600 font-bold rounded-xl hover:bg-teal-50 transition-all shadow-sm hover:shadow-md flex items-center gap-2 group"
-          >
-            <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Tạo yêu cầu mới (Tab mới)
-          </button>
         </div>
       )}
     </div>

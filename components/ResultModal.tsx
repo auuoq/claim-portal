@@ -4,15 +4,20 @@ import { useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+interface DocumentError {
+    name: string;
+    errors: string[];
+}
+
 interface ResultModalProps {
     isOpen: boolean;
     onClose: () => void;
     markdownContent?: string;
     error?: string;
-    invalid_types?: string[];
+    documentErrors?: DocumentError[];
 }
 
-export default function ResultModal({ isOpen, onClose, markdownContent, error, invalid_types }: ResultModalProps) {
+export default function ResultModal({ isOpen, onClose, markdownContent, error, documentErrors }: ResultModalProps) {
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -52,22 +57,33 @@ export default function ResultModal({ isOpen, onClose, markdownContent, error, i
                 <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
                     {error ? (
                         // Error state
-                        <div className="text-center py-8">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                </svg>
+                        <div className="py-6">
+                            <div className="text-center mb-5">
+                                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <h4 className="text-xl font-bold text-gray-800 mb-1">Hồ sơ không hợp lệ</h4>
+                                <p className="text-gray-500 text-sm">{error}</p>
                             </div>
-                            <h4 className="text-xl font-bold text-gray-800 mb-2">Có lỗi xảy ra</h4>
-                            <p className="text-gray-600 mb-4">{error}</p>
-                            {invalid_types && invalid_types.length > 0 && (
-                                <div className="mt-4 bg-red-50 border border-red-100 rounded-xl p-4 max-w-md mx-auto">
-                                    <p className="text-red-700 font-semibold mb-2">Danh sách tài liệu không hợp lệ:</p>
-                                    <ul className="text-red-600 text-sm space-y-1 text-left list-disc list-inside">
-                                        {invalid_types.map((type: string, index: number) => (
-                                            <li key={index}>{type}</li>
-                                        ))}
-                                    </ul>
+                            {documentErrors && documentErrors.length > 0 && (
+                                <div className="space-y-3 mt-4">
+                                    {documentErrors.map((doc, idx) => (
+                                        <div key={idx} className="bg-red-50 border border-red-100 rounded-xl p-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                                </svg>
+                                                <p className="font-semibold text-red-700 text-sm leading-snug">{doc.name}</p>
+                                            </div>
+                                            <ul className="ml-6 space-y-1">
+                                                {doc.errors.map((err, i) => (
+                                                    <li key={i} className="text-red-600 text-xs">• {err}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
