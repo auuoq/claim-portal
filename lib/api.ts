@@ -52,11 +52,16 @@ export interface SSEResultEvent {
     data: string; // Markdown content
 }
 
+export interface SSEErrorEvent {
+    event: 'error';
+    message: string;
+}
+
 export interface SSEDoneEvent {
     event: 'done';
 }
 
-export type SSEEvent = SSEProgressEvent | SSEDocumentEvent | SSEResultEvent | SSEDoneEvent;
+export type SSEEvent = SSEProgressEvent | SSEDocumentEvent | SSEResultEvent | SSEDoneEvent | SSEErrorEvent;
 
 export interface ClaimStreamCallbacks {
     onProgress: (message: string) => void;
@@ -177,6 +182,7 @@ export async function submitClaim(
     const decoder = new TextDecoder();
     let buffer = '';
 
+    let doneReceived = false;
     try {
         while (true) {
             const { done, value } = await reader.read();
@@ -204,12 +210,20 @@ export async function submitClaim(
                     } else if (event.event === 'result') {
                         callbacks.onResult(event.data);
                     } else if (event.event === 'done') {
+                        doneReceived = true;
                         callbacks.onDone();
+                    } else if (event.event === 'error') {
+                        callbacks.onError(event.message);
+                        return;
                     }
                 } catch (parseError) {
                     console.warn('Failed to parse SSE event:', jsonStr, parseError);
                 }
             }
+        }
+        // Stream ended without a 'done' event — trigger done anyway
+        if (!doneReceived) {
+            callbacks.onDone();
         }
     } catch (streamError) {
         console.error('Stream reading error:', streamError);
