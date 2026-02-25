@@ -51,7 +51,7 @@ export let DOCUMENT_TYPES: Record<string, DocumentType[]> = {};
 
 // File validation constants
 export const FILE_VALIDATION = {
-  maxSize: 10 * 1024 * 1024, // 10MB
+  maxSize: 100 * 1024 * 1024, // 100MB
   allowedTypes: {
     images: ['image/jpeg', 'image/jpg', 'image/png', 'image/heic'],
     documents: ['application/pdf']

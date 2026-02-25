@@ -162,7 +162,7 @@ export default function DocumentUploadSection({
                     <p className="text-sm font-medium text-gray-600 group-hover:text-teal-600 transition-colors">
                         Kéo thả hoặc <span className="text-teal-500 underline">chọn file</span>
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, HEIC, PDF — tối đa 10MB/file</p>
+                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, HEIC, PDF — tối đa 100MB/file</p>
 
                     <input
                         ref={fileInputRef}
