@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.50.139:5041/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_TEST_URL || 'http://10.0.50.139:5041/api';
 
 // Types for API responses
 export interface TreatmentType {
@@ -75,7 +75,11 @@ export interface ClaimStreamCallbacks {
 // Fetch insurance packages
 export async function fetchInsuranceInfo(): Promise<InfoResponse> {
     try {
-        const response = await fetch(`${API_BASE_URL}/info`);
+        const response = await fetch(`${API_BASE_URL}/info`, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true'
+            }
+        });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -90,7 +94,11 @@ export async function fetchInsuranceInfo(): Promise<InfoResponse> {
 // Fetch document types based on treatment type code (ma)
 export async function fetchDocumentTypes(ma: string): Promise<DocumentTypesResponse> {
     try {
-        const response = await fetch(`${API_BASE_URL}/document-types?ma=${ma}`);
+        const response = await fetch(`${API_BASE_URL}/document-types?ma=${ma}`, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true'
+            }
+        });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -160,6 +168,7 @@ export async function submitClaim(
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
             },
             body: JSON.stringify(payload)
         });
