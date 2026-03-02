@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gamic-quiescent-juliane.ngrok-free.dev/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://oxidative-unexpedited-vanda.ngrok-free.dev/api';
 
 // Types for API responses
 export interface TreatmentType {
