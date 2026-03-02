@@ -15,9 +15,10 @@ interface ResultModalProps {
     markdownContent?: string;
     error?: string;
     documentErrors?: DocumentError[];
+    missingDocuments?: { ma: string; ten: string }[];
 }
 
-export default function ResultModal({ isOpen, onClose, markdownContent, error, documentErrors }: ResultModalProps) {
+export default function ResultModal({ isOpen, onClose, markdownContent, error, documentErrors, missingDocuments }: ResultModalProps) {
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -67,6 +68,23 @@ export default function ResultModal({ isOpen, onClose, markdownContent, error, d
                                 <h4 className="text-xl font-bold text-gray-800 mb-1">Hồ sơ không hợp lệ</h4>
                                 <p className="text-gray-500 text-sm">{error}</p>
                             </div>
+                            {missingDocuments && missingDocuments.length > 0 && (
+                                <div className="space-y-3 mt-4 mb-4">
+                                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <p className="font-semibold text-amber-700 text-sm leading-snug">Giấy tờ bị thiếu:</p>
+                                        </div>
+                                        <ul className="ml-6 space-y-1">
+                                            {missingDocuments.map((doc, idx) => (
+                                                <li key={idx} className="text-amber-600 text-xs mt-1">• <span className="font-semibold">{doc.ma}:</span> {doc.ten}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
                             {documentErrors && documentErrors.length > 0 && (
                                 <div className="space-y-3 mt-4">
                                     {documentErrors.map((doc, idx) => (

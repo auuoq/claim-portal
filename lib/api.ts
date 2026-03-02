@@ -55,6 +55,7 @@ export interface SSEResultEvent {
 export interface SSEErrorEvent {
     event: 'error';
     message: string;
+    missing_documents?: { ma: string; ten: string }[];
 }
 
 export interface SSEDoneEvent {
@@ -68,7 +69,7 @@ export interface ClaimStreamCallbacks {
     onDocument: (name: string, status: 'done' | 'fail', errors?: string[]) => void;
     onResult: (markdown: string) => void;
     onDone: () => void;
-    onError: (error: string) => void;
+    onError: (error: string, missingDocuments?: { ma: string; ten: string }[]) => void;
 }
 
 // Fetch insurance packages
@@ -213,7 +214,7 @@ export async function submitClaim(
                         doneReceived = true;
                         callbacks.onDone();
                     } else if (event.event === 'error') {
-                        callbacks.onError(event.message);
+                        callbacks.onError(event.message, event.missing_documents);
                         return;
                     }
                 } catch (parseError) {

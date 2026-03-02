@@ -36,7 +36,7 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<FileWithPreview[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
-  const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string; documentErrors?: { name: string; errors: string[] }[] }>({});
+  const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string; documentErrors?: { name: string; errors: string[] }[]; missingDocuments?: { ma: string; ten: string }[] }>({});
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingDocumentTypes, setIsLoadingDocumentTypes] = useState(false);
   const [apiData, setApiData] = useState<InsuranceInfoData | null>(null);
@@ -196,9 +196,9 @@ export default function Home() {
             }
             setShowResultModal(true);
           },
-          onError: (error) => {
+          onError: (error, missingDocuments) => {
             setIsCalculating(false);
-            setClaimResult({ error });
+            setClaimResult({ error, missingDocuments });
             setShowResultModal(true);
           }
         }
@@ -395,6 +395,7 @@ export default function Home() {
         markdownContent={claimResult.markdown}
         error={claimResult.error}
         documentErrors={claimResult.documentErrors}
+        missingDocuments={claimResult.missingDocuments}
       />
 
       {/* Package Preview Modal */}
