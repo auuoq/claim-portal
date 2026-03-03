@@ -127,6 +127,7 @@ export async function submitClaim(
         goi: string;
         loai_dieu_tri: string;
         files: File[];
+        contractFiles?: File[];
     },
     callbacks: ClaimStreamCallbacks
 ): Promise<void> {
@@ -138,7 +139,12 @@ export async function submitClaim(
         }))
     );
 
-    const payload = {
+    // Convert contract files to base64 if provided
+    const contractFilesBase64 = data.contractFiles && data.contractFiles.length > 0
+        ? await Promise.all(data.contractFiles.map(async (f) => ({ name: f.name, data: await fileToBase64(f) })))
+        : null;
+
+    const payload: Record<string, unknown> = {
         hop_dong: {
             ten: data.hopDong,
             goi: data.goi
@@ -148,6 +154,12 @@ export async function submitClaim(
             files: filesBase64
         }
     };
+
+    if (contractFilesBase64) {
+        payload.hop_dong_ca_nhan = {
+            files: contractFilesBase64
+        };
+    }
 
     console.group('📤 SENDING TO API (SSE)');
     console.log('URL:', `${API_BASE_URL}/claim`);

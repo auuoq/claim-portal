@@ -9,6 +9,7 @@ import DocumentUploadSection from '@/components/DocumentUploadSection';
 import CalculateButton from '@/components/CalculateButton';
 import ResultModal from '@/components/ResultModal';
 import PackagePreviewModal from '@/components/PackagePreviewModal';
+import ContractUploadModal from '@/components/ContractUploadModal';
 import FilePreviewModal from '@/components/FilePreviewModal';
 import { fetchInsuranceInfo, fetchDocumentTypes, submitClaim } from '@/lib/api';
 import { updateFromAPI, updateDocumentTypesFromAPI, INSURANCE_PACKAGES, DOCUMENT_TYPES, TREATMENT_TYPES, InsuranceInfoData, InsurancePackageType, InsuranceContract, InsuranceCategory } from '@/lib/constants';
@@ -51,6 +52,8 @@ export default function Home() {
     name: '',
     isImage: false
   });
+  const [contractFiles, setContractFiles] = useState<File[]>([]);
+  const [showContractModal, setShowContractModal] = useState(false);
 
   // Load insurance packages from API on mount
   useEffect(() => {
@@ -82,6 +85,23 @@ export default function Home() {
     setInsuranceSubOption(subOptionId);
     setTreatmentType(null);
     setUploadedFiles([]);
+    setContractFiles([]);
+    setShowContractModal(true);
+  };
+
+  const handleContractConfirm = (files: File[]) => {
+    setContractFiles(files);
+    setShowContractModal(false);
+  };
+
+  const handleContractSkip = () => {
+    setContractFiles([]);
+    setInsuranceSubOption(null);
+    setShowContractModal(false);
+  };
+
+  const handleEditContract = () => {
+    setShowContractModal(true);
   };
 
   const handleTreatmentTypeSelect = async (type: string) => {
@@ -150,7 +170,8 @@ export default function Home() {
           hopDong: selectedPkg?.name || '',
           goi: packageData?.ten || '',
           loai_dieu_tri: loaiDieuTri,
-          files: uploadedFiles.map(f => f.file)
+          files: uploadedFiles.map(f => f.file),
+          contractFiles: contractFiles.length > 0 ? contractFiles : undefined
         },
         {
           onProgress: (message) => {
@@ -305,6 +326,8 @@ export default function Home() {
                       onPackageSelect={handleInsurancePackageSelect}
                       onSubOptionSelect={handleInsuranceSubOptionSelect}
                       onPreview={handlePackagePreview}
+                      contractFileCount={contractFiles.length > 0 ? contractFiles.length : undefined}
+                      onEditContract={handleEditContract}
                     />
                   </div>
                 )}
@@ -404,6 +427,16 @@ export default function Home() {
         onClose={() => setPreviewModal({ ...previewModal, isOpen: false })}
         packageName={previewModal.name}
         previewContent={previewModal.content}
+      />
+
+      {/* Contract Upload Modal */}
+      <ContractUploadModal
+        isOpen={showContractModal}
+        packageName={INSURANCE_PACKAGES.find(p => p.id === insurancePackage)?.name || ''}
+        subOptionName={INSURANCE_PACKAGES.find(p => p.id === insurancePackage)?.subOptions?.find(s => s.id === insuranceSubOption)?.name || ''}
+        initialFiles={contractFiles}
+        onConfirm={handleContractConfirm}
+        onSkip={handleContractSkip}
       />
 
       <FilePreviewModal
