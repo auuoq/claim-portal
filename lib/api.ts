@@ -43,8 +43,7 @@ export interface SSEProgressEvent {
 export interface SSEDocumentEvent {
     event: 'document';
     name: string;
-    status: 'done' | 'fail';
-    errors?: string[];
+    status: 'done'; // API spec: always 'done'
 }
 
 export interface SSEResultEvent {
@@ -56,20 +55,28 @@ export interface SSEErrorEvent {
     event: 'error';
     message: string;
     missing_documents?: { ma: string; ten: string }[];
+    suggested_documents?: { ma: string; ten: string }[];
+}
+
+export interface SSEMissingDocumentsEvent {
+    event: 'missing_documents';
+    message: string;
+    missing_documents: { ma: string; ten: string }[];
 }
 
 export interface SSEDoneEvent {
     event: 'done';
 }
 
-export type SSEEvent = SSEProgressEvent | SSEDocumentEvent | SSEResultEvent | SSEDoneEvent | SSEErrorEvent;
+export type SSEEvent = SSEProgressEvent | SSEDocumentEvent | SSEResultEvent | SSEDoneEvent | SSEErrorEvent | SSEMissingDocumentsEvent;
 
 export interface ClaimStreamCallbacks {
     onProgress: (message: string) => void;
-    onDocument: (name: string, status: 'done' | 'fail', errors?: string[]) => void;
+    onDocument: (name: string) => void;
     onResult: (markdown: string) => void;
     onDone: () => void;
-    onError: (error: string, missingDocuments?: { ma: string; ten: string }[]) => void;
+    onMissingDocuments: (message: string, docs: { ma: string; ten: string }[]) => void;
+    onError: (error: string, missingDocuments?: { ma: string; ten: string }[], suggestedDocuments?: { ma: string; ten: string }[]) => void;
 }
 
 // Fetch insurance packages
@@ -228,14 +235,17 @@ export async function submitClaim(
                     if (event.event === 'progress') {
                         callbacks.onProgress(event.message);
                     } else if (event.event === 'document') {
-                        callbacks.onDocument(event.name, event.status, event.errors);
+                        callbacks.onDocument(event.name);
                     } else if (event.event === 'result') {
                         callbacks.onResult(event.data);
                     } else if (event.event === 'done') {
                         doneReceived = true;
                         callbacks.onDone();
+                    } else if (event.event === 'missing_documents') {
+                        callbacks.onMissingDocuments(event.message, event.missing_documents);
+                        return;
                     } else if (event.event === 'error') {
-                        callbacks.onError(event.message, event.missing_documents);
+                        callbacks.onError(event.message, event.missing_documents, event.suggested_documents);
                         return;
                     }
                 } catch (parseError) {

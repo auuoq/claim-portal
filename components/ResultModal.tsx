@@ -4,21 +4,16 @@ import { useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-interface DocumentError {
-    name: string;
-    errors: string[];
-}
-
 interface ResultModalProps {
     isOpen: boolean;
     onClose: () => void;
     markdownContent?: string;
     error?: string;
-    documentErrors?: DocumentError[];
     missingDocuments?: { ma: string; ten: string }[];
+    suggestedDocuments?: { ma: string; ten: string }[];
 }
 
-export default function ResultModal({ isOpen, onClose, markdownContent, error, documentErrors, missingDocuments }: ResultModalProps) {
+export default function ResultModal({ isOpen, onClose, markdownContent, error, missingDocuments, suggestedDocuments }: ResultModalProps) {
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -69,39 +64,37 @@ export default function ResultModal({ isOpen, onClose, markdownContent, error, d
                                 <p className="text-gray-500 text-sm">{error}</p>
                             </div>
                             {missingDocuments && missingDocuments.length > 0 && (
-                                <div className="space-y-3 mt-4 mb-4">
+                                <div className="mt-4">
                                     <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
-                                            <p className="font-semibold text-amber-700 text-sm leading-snug">Giấy tờ bị thiếu:</p>
+                                            <p className="font-semibold text-amber-700 text-sm">Giấy tờ bị thiếu:</p>
                                         </div>
                                         <ul className="ml-6 space-y-1">
                                             {missingDocuments.map((doc, idx) => (
-                                                <li key={idx} className="text-amber-600 text-xs mt-1">• <span className="font-semibold">{doc.ma}:</span> {doc.ten}</li>
+                                                <li key={idx} className="text-amber-600 text-xs mt-1">• {doc.ten}</li>
                                             ))}
                                         </ul>
                                     </div>
                                 </div>
                             )}
-                            {documentErrors && documentErrors.length > 0 && (
-                                <div className="space-y-3 mt-4">
-                                    {documentErrors.map((doc, idx) => (
-                                        <div key={idx} className="bg-red-50 border border-red-100 rounded-xl p-4">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                                                </svg>
-                                                <p className="font-semibold text-red-700 text-sm leading-snug">{doc.name}</p>
-                                            </div>
-                                            <ul className="ml-6 space-y-1">
-                                                {doc.errors.map((err, i) => (
-                                                    <li key={i} className="text-red-600 text-xs">• {err}</li>
-                                                ))}
-                                            </ul>
+                            {suggestedDocuments && suggestedDocuments.length > 0 && (
+                                <div className="mt-3">
+                                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                            </svg>
+                                            <p className="font-semibold text-blue-700 text-sm">Gợi ý các loại giấy tờ có thể upload:</p>
                                         </div>
-                                    ))}
+                                        <ul className="ml-6 space-y-1">
+                                            {suggestedDocuments.map((doc, idx) => (
+                                                <li key={idx} className="text-blue-600 text-xs mt-1">• {doc.ten}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 </div>
                             )}
                         </div>

@@ -37,7 +37,7 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<FileWithPreview[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
-  const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string; documentErrors?: { name: string; errors: string[] }[]; missingDocuments?: { ma: string; ten: string }[] }>({});
+  const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string; missingDocuments?: { ma: string; ten: string }[]; suggestedDocuments?: { ma: string; ten: string }[] }>({});
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingDocumentTypes, setIsLoadingDocumentTypes] = useState(false);
   const [apiData, setApiData] = useState<InsuranceInfoData | null>(null);
@@ -162,8 +162,6 @@ export default function Home() {
       const loaiDieuTri = selectedTreatmentType?.ma || treatmentType;
 
       let resultMarkdown = '';
-      const documentErrors: { name: string; errors: string[] }[] = [];
-      const failedDocNames: string[] = [];
 
       await submitClaim(
         {
@@ -180,28 +178,19 @@ export default function Home() {
               { type: 'progress', message, status: 'loading' }
             ]);
           },
-          onDocument: (name, status, errors) => {
+          onDocument: (name) => {
             setProcessingSteps(prev => [
               ...prev,
-              { type: 'document', message: name, status, errors }
+              { type: 'document', message: name, status: 'done' }
             ]);
-            if (status === 'fail' && errors) {
-              documentErrors.push({ name, errors });
-              failedDocNames.push(name);
-            }
           },
           onResult: (markdown) => {
             resultMarkdown = markdown;
           },
           onDone: () => {
             setIsCalculating(false);
-            if (documentErrors.length > 0 && !resultMarkdown) {
-              setClaimResult({
-                error: 'Phát hiện tài liệu sai loại hoặc không hợp lệ',
-                documentErrors
-              });
-            } else if (resultMarkdown) {
-              setClaimResult({ markdown: resultMarkdown, documentErrors: documentErrors.length > 0 ? documentErrors : undefined });
+            if (resultMarkdown) {
+              setClaimResult({ markdown: resultMarkdown });
               if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
                 const notification = new Notification('Thẩm định hoàn tất!', {
                   body: 'Kết quả thẩm định hồ sơ của bạn đã có. Nhấn để xem ngay.',
@@ -217,9 +206,14 @@ export default function Home() {
             }
             setShowResultModal(true);
           },
-          onError: (error, missingDocuments) => {
+          onMissingDocuments: (message, docs) => {
             setIsCalculating(false);
-            setClaimResult({ error, missingDocuments });
+            setClaimResult({ error: message, missingDocuments: docs });
+            setShowResultModal(true);
+          },
+          onError: (error, missingDocuments, suggestedDocuments) => {
+            setIsCalculating(false);
+            setClaimResult({ error, missingDocuments, suggestedDocuments });
             setShowResultModal(true);
           }
         }
@@ -417,8 +411,8 @@ export default function Home() {
         onClose={() => setShowResultModal(false)}
         markdownContent={claimResult.markdown}
         error={claimResult.error}
-        documentErrors={claimResult.documentErrors}
         missingDocuments={claimResult.missingDocuments}
+        suggestedDocuments={claimResult.suggestedDocuments}
       />
 
       {/* Package Preview Modal */}
