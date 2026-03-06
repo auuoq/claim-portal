@@ -1,0 +1,115 @@
+# Tài Liệu Cập Nhật API Claim
+
+Endpoint `/api/claim` cũ đã được tách thành 2 API độc lập để hỗ trợ việc review kết quả OCR và điều chỉnh trước khi gửi phân tích AI:
+1. **API 1:** `/api/claim/ocr` (Xử lý bóc tách hợp đồng cá nhân và SmartClassify + OCR hồ sơ)
+2. **API 2:** `/api/claim/analyse` (Phân tích AI từ dữ liệu OCR và trả về kết quả bồi thường)
+
+---
+
+## 1. API OCR: `POST /api/claim/ocr`
+
+API này nhận file đầu vào y hệt như `/api/claim` cũ, thực hiện OCR và trả về data cần thiết cho bước 2.
+
+### 1.1 Request Payload
+Content-Type: `application/json`
+```json
+{
+  "hop_dong": {
+    "ten": "BaoViet",
+    "goi": "co_ban"
+  },
+  "ho_so": {
+    "files": [
+      {
+        "name": "hoso_benh_an.pdf",
+        "data": "data:application/pdf;base64,..."
+      }
+    ]
+  },
+  "loai_dieu_tri": "noi_tru", 
+  "hop_dong_ca_nhan": {         // Optional: Dùng để bóc tách thông tin GCN
+    "files": [
+      {
+         "name": "gcn.jpeg",
+         "data": "data:image/jpeg;base64,..."
+      }
+    ]
+  }
+}
+```
+
+### 1.2 SSE Event Stream Format
+Giữ nguyên luồng SSE (Server-Sent Events) như cũ, bao gồm các event:
+- `progress`: Tiến trình phân loại và OCR.
+- `document`: File đã xử lý xong.
+- `missing_documents`: Thiếu giấy tờ bắt buộc (luồng sẽ dùng lại ở đây).
+- `error`: Có lỗi bất ngờ xảy ra.
+- **`result`**: Chứa toàn bộ payload data **cần gửi sang API Analyse**.
+- `done`: Kết thúc stream.
+
+### 1.3 `result` Event Data (Quan trọng)
+Payload trong event `result` trả ra từ `/api/claim/ocr` chứa thông tin toàn bộ văn bản OCR đã được bóc tách và phân loại. Dữ liệu này được gộp sẵn các trường để **có thể đẩy thẳng** vào payload của `/api/claim/analyse`.
+```json
+{
+  "ho_so": {
+    "GIAY_RA_VIEN": [
+               { "content": "## Giấy ra viện\n...", "source": "file1_trang1" }
+     ],
+     "HOA_DON": [
+               { "content": "## Hóa đơn...\n...", "source": "file2_trang1" }
+     ]
+  },
+  "stats": { "total_pages": 4, "processed": 3, "removed": 1 },
+  "removed_pages": [{ "source": "file1_trang3", "reason": "Không phải giấy tờ y tế" }],
+  
+  // Data gộp thêm để đẩy thẳng sang API Analyse:
+  "contract_details": { ... }, // Data bóc từ hop_dong_ca_nhan (null nếu không có)
+  "hop_dong": { "ten": "BaoViet", "goi": "co_ban" }, // Nguyên bản từ payload
+  "loai_dieu_tri": "noi_tru"                         // Mã loại điều trị
+}
+```
+
+---
+
+## 2. API Analyse: `POST /api/claim/analyse`
+
+API này nhận kết quả văn bản mà API OCR đã trả về, thực hiện phân tích bằng AI (Gemini) để xuất ra báo cáo bồi thường.
+
+### 2.1 Request Payload
+Nội dung của Request Payload này **chính là** object nhận được từ event **`result` của `/api/claim/ocr`**. FE chỉ cần parse object từ event `result` và truyền vào POST body của API này.
+
+Content-Type: `application/json`
+```json
+{
+  "hop_dong": {
+    "ten": "BaoViet",
+    "goi": "co_ban"
+  },
+  "loai_dieu_tri": "noi_tru",
+  "contract_details": { ... },  // Optional, thông tin GCN lấy từ result OCR
+  "ho_so": {
+    "GIAY_RA_VIEN": [
+        { "content": "...", "source": "file1_trang1" }
+    ],
+    "HOA_DON": [
+        { "content": "...", "source": "file2_trang1" }
+    ]
+  }
+}
+```
+
+> **Lưu ý cho FE:** Trước khi gọi `/api/claim/analyse`, phía client có thể hiển thị `ho_so` lên giao diện để người dùng (Agent) **chỉnh sửa các đoạn lỗi của OCR** (nếu có). Sau khi chỉnh sửa xong thì mới submit payload này đi để AI phân tích.
+
+### 2.2 SSE Event Stream Format
+Giống API cũ cho phần sau:
+- `progress`: Thông báo đang phân tích quyền lợi và tính số tiền bồi thường.
+- `error`: Có lỗi bất ngờ xảy ra.
+- **`result`**: Trả về dữ liệu **Báo cáo Bồi thường chuẩn Markdown**.
+- `done`: Kết thúc stream.
+
+### 2.3 `result` Event Data
+```json
+{
+  "data": "## Báo cáo Bồi thường\n\n- Quyền lợi: ...\n- Tổng tiền: ..."
+}
+```

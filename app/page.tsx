@@ -1,19 +1,39 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import StepIndicator from '@/components/StepIndicator';
-import SelectionSummary from '@/components/SelectionSummary';
-import InsurancePackageSelector from '@/components/InsurancePackageSelector';
-import TreatmentTypeSelector from '@/components/TreatmentTypeSelector';
-import DocumentUploadSection from '@/components/DocumentUploadSection';
-import CalculateButton from '@/components/CalculateButton';
-import ResultModal from '@/components/ResultModal';
-import PackagePreviewModal from '@/components/PackagePreviewModal';
-import ContractUploadModal from '@/components/ContractUploadModal';
-import FilePreviewModal from '@/components/FilePreviewModal';
-import { fetchInsuranceInfo, fetchDocumentTypes, submitClaim } from '@/lib/api';
-import { updateFromAPI, updateDocumentTypesFromAPI, INSURANCE_PACKAGES, DOCUMENT_TYPES, TREATMENT_TYPES, InsuranceInfoData, InsurancePackageType, InsuranceContract, InsuranceCategory } from '@/lib/constants';
-import { generateUniqueId, createFilePreviewUrl, isImageFile } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import StepIndicator from "@/components/StepIndicator";
+import SelectionSummary from "@/components/SelectionSummary";
+import InsurancePackageSelector from "@/components/InsurancePackageSelector";
+import TreatmentTypeSelector from "@/components/TreatmentTypeSelector";
+import DocumentUploadSection from "@/components/DocumentUploadSection";
+import CalculateButton from "@/components/CalculateButton";
+import ResultModal from "@/components/ResultModal";
+import PackagePreviewModal from "@/components/PackagePreviewModal";
+import ContractUploadModal from "@/components/ContractUploadModal";
+import FilePreviewModal from "@/components/FilePreviewModal";
+import OcrReviewPopup from "@/components/OcrReviewPopup";
+import {
+  fetchInsuranceInfo,
+  fetchDocumentTypes,
+  submitClaimOcr,
+  submitClaimAnalyse,
+} from "@/lib/api";
+import {
+  updateFromAPI,
+  updateDocumentTypesFromAPI,
+  INSURANCE_PACKAGES,
+  DOCUMENT_TYPES,
+  TREATMENT_TYPES,
+  InsuranceInfoData,
+  InsurancePackageType,
+  InsuranceContract,
+  InsuranceCategory,
+} from "@/lib/constants";
+import {
+  generateUniqueId,
+  createFilePreviewUrl,
+  isImageFile,
+} from "@/lib/utils";
 
 interface FileWithPreview {
   id: string;
@@ -23,34 +43,52 @@ interface FileWithPreview {
 
 // Processing step shown in loading overlay
 interface ProcessingStep {
-  type: 'progress' | 'document';
+  type: "progress" | "document";
   message: string;
-  status?: 'done' | 'fail' | 'loading';
+  status?: "done" | "fail" | "loading";
   errors?: string[];
 }
 
 export default function Home() {
   const [currentStep, setCurrentStep] = useState(1);
   const [insurancePackage, setInsurancePackage] = useState<string | null>(null);
-  const [insuranceSubOption, setInsuranceSubOption] = useState<string | null>(null);
+  const [insuranceSubOption, setInsuranceSubOption] = useState<string | null>(
+    null,
+  );
   const [treatmentType, setTreatmentType] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<FileWithPreview[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
-  const [claimResult, setClaimResult] = useState<{ markdown?: string; error?: string; missingDocuments?: { ma: string; ten: string }[]; suggestedDocuments?: { ma: string; ten: string }[] }>({});
+  const [claimResult, setClaimResult] = useState<{
+    markdown?: string;
+    error?: string;
+    missingDocuments?: { ma: string; ten: string }[];
+    suggestedDocuments?: { ma: string; ten: string }[];
+  }>({});
+  const [ocrResult, setOcrResult] = useState<any>(null);
+  const [showOcrReview, setShowOcrReview] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingDocumentTypes, setIsLoadingDocumentTypes] = useState(false);
   const [apiData, setApiData] = useState<InsuranceInfoData | null>(null);
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
-  const [previewModal, setPreviewModal] = useState<{ isOpen: boolean; name: string; content: string }>({
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean;
+    name: string;
+    content: string;
+  }>({
     isOpen: false,
-    name: '',
-    content: ''
+    name: "",
+    content: "",
   });
-  const [previewFile, setPreviewFile] = useState<{ isOpen: boolean; name: string; url?: string; isImage: boolean }>({
+  const [previewFile, setPreviewFile] = useState<{
+    isOpen: boolean;
+    name: string;
+    url?: string;
+    isImage: boolean;
+  }>({
     isOpen: false,
-    name: '',
-    isImage: false
+    name: "",
+    isImage: false,
   });
   const [contractFiles, setContractFiles] = useState<File[]>([]);
   const [showContractModal, setShowContractModal] = useState(false);
@@ -60,19 +98,18 @@ export default function Home() {
     async function loadData() {
       try {
         const data = await fetchInsuranceInfo();
-        if (data.status === 'success') {
+        if (data.status === "success") {
           updateFromAPI(data.data);
           setApiData(data.data);
         }
       } catch (error) {
-        console.error('Failed to load insurance data:', error);
+        console.error("Failed to load insurance data:", error);
       } finally {
         setIsLoadingData(false);
       }
     }
     loadData();
   }, []);
-
 
   const handleInsurancePackageSelect = (packageId: string) => {
     setInsurancePackage(packageId);
@@ -111,100 +148,104 @@ export default function Home() {
     setIsLoadingDocumentTypes(true);
     try {
       const data = await fetchDocumentTypes(type);
-      if (data.status === 'success') {
+      if (data.status === "success") {
         updateDocumentTypesFromAPI(data.data, type);
       }
     } catch (error) {
-      console.error('Failed to load document types:', error);
+      console.error("Failed to load document types:", error);
     } finally {
       setIsLoadingDocumentTypes(false);
     }
   };
 
   const handleFilesAdd = (files: File[]) => {
-    const filesWithPreview: FileWithPreview[] = files.map(file => ({
+    const filesWithPreview: FileWithPreview[] = files.map((file) => ({
       id: generateUniqueId(),
       file,
-      previewUrl: isImageFile(file) ? createFilePreviewUrl(file) : undefined
+      previewUrl: isImageFile(file) ? createFilePreviewUrl(file) : undefined,
     }));
-    setUploadedFiles(prev => [...prev, ...filesWithPreview]);
+    setUploadedFiles((prev) => [...prev, ...filesWithPreview]);
   };
 
   const handleFileRemove = (fileId: string) => {
-    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+    setUploadedFiles((prev) => prev.filter((f) => f.id !== fileId));
   };
 
   const handleCalculate = async () => {
     if (!treatmentType || !insurancePackage || !apiData) return;
 
     if (uploadedFiles.length === 0) {
-      alert('Vui lòng tải lên ít nhất một hồ sơ');
+      alert("Vui lòng tải lên ít nhất một hồ sơ");
       return;
     }
 
     setIsCalculating(true);
     setProcessingSteps([]);
 
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
         Notification.requestPermission();
       }
     }
 
     try {
-      const selectedPkg = INSURANCE_PACKAGES.find((p: InsurancePackageType) => p.id === insurancePackage);
-      const contractData = apiData.hop_dong.find((c: InsuranceContract) => c.ten === selectedPkg?.name);
+      const selectedPkg = INSURANCE_PACKAGES.find(
+        (p: InsurancePackageType) => p.id === insurancePackage,
+      );
+      const contractData = apiData.hop_dong.find(
+        (c: InsuranceContract) => c.ten === selectedPkg?.name,
+      );
       const packageData = insuranceSubOption
-        ? contractData?.cac_goi.find((g: InsuranceCategory) => g.ten === selectedPkg?.subOptions?.find((s) => s.id === insuranceSubOption)?.name)
+        ? contractData?.cac_goi.find(
+            (g: InsuranceCategory) =>
+              g.ten ===
+              selectedPkg?.subOptions?.find((s) => s.id === insuranceSubOption)
+                ?.name,
+          )
         : null;
 
-      const selectedTreatmentType = TREATMENT_TYPES.find(t => t.id === treatmentType);
+      const selectedTreatmentType = TREATMENT_TYPES.find(
+        (t) => t.id === treatmentType,
+      );
       const loaiDieuTri = selectedTreatmentType?.ma || treatmentType;
 
-      let resultMarkdown = '';
+      let ocrData: any = null;
 
-      await submitClaim(
+      await submitClaimOcr(
         {
-          hopDong: selectedPkg?.name || '',
-          goi: packageData?.ten || '',
+          hopDong: selectedPkg?.name || "",
+          goi: packageData?.ten || "",
           loai_dieu_tri: loaiDieuTri,
-          files: uploadedFiles.map(f => f.file),
-          contractFiles: contractFiles.length > 0 ? contractFiles : undefined
+          files: uploadedFiles.map((f) => f.file),
+          contractFiles: contractFiles.length > 0 ? contractFiles : undefined,
         },
         {
           onProgress: (message) => {
-            setProcessingSteps(prev => [
+            setProcessingSteps((prev) => [
               ...prev,
-              { type: 'progress', message, status: 'loading' }
+              { type: "progress", message, status: "loading" },
             ]);
           },
           onDocument: (name) => {
-            setProcessingSteps(prev => [
+            setProcessingSteps((prev) => [
               ...prev,
-              { type: 'document', message: name, status: 'done' }
+              { type: "document", message: name, status: "done" },
             ]);
           },
-          onResult: (markdown) => {
-            resultMarkdown = markdown;
+          onResult: (data) => {
+            ocrData = data;
           },
           onDone: () => {
             setIsCalculating(false);
-            if (resultMarkdown) {
-              setClaimResult({ markdown: resultMarkdown });
-              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                const notification = new Notification('Thẩm định hoàn tất!', {
-                  body: 'Kết quả thẩm định hồ sơ của bạn đã có. Nhấn để xem ngay.',
-                  icon: '/favicon.ico'
-                });
-                notification.onclick = () => {
-                  window.focus();
-                  notification.close();
-                };
-              }
+            if (ocrData) {
+              setOcrResult(ocrData);
+              setShowOcrReview(true);
             } else {
-              setClaimResult({ error: 'Không nhận được kết quả từ hệ thống' });
+              setClaimResult({
+                error: "Không nhận được kết quả dữ liệu từ hệ thống OCR",
+              });
+              setShowResultModal(true);
             }
-            setShowResultModal(true);
           },
           onMissingDocuments: (message, docs) => {
             setIsCalculating(false);
@@ -215,13 +256,88 @@ export default function Home() {
             setIsCalculating(false);
             setClaimResult({ error, missingDocuments, suggestedDocuments });
             setShowResultModal(true);
-          }
-        }
+          },
+        },
       );
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       setIsCalculating(false);
-      setClaimResult({ error: 'Có lỗi xảy ra khi tính toán claim' });
+      setClaimResult({ error: "Có lỗi xảy ra khi đọc hồ sơ OCR" });
+      setShowResultModal(true);
+    }
+  };
+
+  const handleAnalyse = async (dataToAnalyse: any) => {
+    setIsCalculating(true);
+    setProcessingSteps([
+      {
+        type: "progress",
+        message: "Đang gửi dữ liệu phân tích AI...",
+        status: "loading",
+      },
+    ]);
+
+    let resultMarkdown = "";
+
+    try {
+      await submitClaimAnalyse(dataToAnalyse, {
+        onProgress: (message) => {
+          setProcessingSteps((prev) => [
+            ...prev,
+            { type: "progress", message, status: "loading" },
+          ]);
+        },
+        onDocument: (name) => {
+          setProcessingSteps((prev) => [
+            ...prev,
+            { type: "document", message: name, status: "done" },
+          ]);
+        },
+        onResult: (markdown) => {
+          resultMarkdown = markdown;
+        },
+        onDone: () => {
+          setIsCalculating(false);
+          setShowOcrReview(false);
+          if (resultMarkdown) {
+            setClaimResult({ markdown: resultMarkdown });
+            if (
+              typeof window !== "undefined" &&
+              "Notification" in window &&
+              Notification.permission === "granted"
+            ) {
+              const notification = new Notification("Thẩm định hoàn tất!", {
+                body: "Kết quả thẩm định hồ sơ của bạn đã có. Nhấn để xem ngay.",
+                icon: "/favicon.ico",
+              });
+              notification.onclick = () => {
+                window.focus();
+                notification.close();
+              };
+            }
+          } else {
+            setClaimResult({ error: "Không nhận được kết quả từ hệ thống AI" });
+          }
+          setShowResultModal(true);
+        },
+        onMissingDocuments: (message, docs) => {
+          setIsCalculating(false);
+          setShowOcrReview(false);
+          setClaimResult({ error: message, missingDocuments: docs });
+          setShowResultModal(true);
+        },
+        onError: (error, missingDocuments, suggestedDocuments) => {
+          setIsCalculating(false);
+          setShowOcrReview(false);
+          setClaimResult({ error, missingDocuments, suggestedDocuments });
+          setShowResultModal(true);
+        },
+      });
+    } catch (error) {
+      console.error("Analyse Error:", error);
+      setIsCalculating(false);
+      setShowOcrReview(false);
+      setClaimResult({ error: "Có lỗi xảy ra khi tính toán claim" });
       setShowResultModal(true);
     }
   };
@@ -229,16 +345,20 @@ export default function Home() {
   const hasUploadedFiles = uploadedFiles.length > 0;
   const totalFileCount = uploadedFiles.length;
 
-  const currentPkg = INSURANCE_PACKAGES.find((p: InsurancePackageType) => p.id === insurancePackage);
-  const isPackageSelectionComplete = insurancePackage && (!currentPkg?.hasSubOptions || insuranceSubOption);
+  const currentPkg = INSURANCE_PACKAGES.find(
+    (p: InsurancePackageType) => p.id === insurancePackage,
+  );
+  const isPackageSelectionComplete =
+    insurancePackage && (!currentPkg?.hasSubOptions || insuranceSubOption);
 
-  const stepLabels = ['Gói BH', 'Điều trị', 'Hồ sơ'];
+  const stepLabels = ["Gói BH", "Điều trị", "Hồ sơ"];
   const totalSteps = 3;
 
   const canProceedToStep2 = isPackageSelectionComplete;
   const canProceedToStep3 = canProceedToStep2 && treatmentType;
 
-  const canCalculateClaim = canProceedToStep3 && !isLoadingDocumentTypes && hasUploadedFiles;
+  const canCalculateClaim =
+    canProceedToStep3 && !isLoadingDocumentTypes && hasUploadedFiles;
 
   const handleNext = () => {
     if (currentStep === 1 && canProceedToStep2) {
@@ -259,7 +379,7 @@ export default function Home() {
   };
 
   const handleCreateNewRequest = () => {
-    window.open(window.location.href, '_blank');
+    window.open(window.location.href, "_blank");
   };
 
   const handleFilePreview = (file: FileWithPreview) => {
@@ -267,7 +387,7 @@ export default function Home() {
       isOpen: true,
       name: file.file.name,
       url: file.previewUrl || URL.createObjectURL(file.file),
-      isImage: isImageFile(file.file)
+      isImage: isImageFile(file.file),
     });
   };
 
@@ -278,13 +398,27 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-white p-2 rounded-lg shadow-sm">
-              <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              <svg
+                className="w-6 h-6 text-teal-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                />
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">Yêu cầu bồi thường bảo hiểm</h1>
-              <p className="text-teal-100 text-xs font-medium opacity-90">Hoàn thành 3 bước đơn giản</p>
+              <h1 className="text-xl font-bold tracking-tight">
+                Yêu cầu bồi thường bảo hiểm
+              </h1>
+              <p className="text-teal-100 text-xs font-medium opacity-90">
+                Hoàn thành 3 bước đơn giản
+              </p>
             </div>
           </div>
         </div>
@@ -320,7 +454,11 @@ export default function Home() {
                       onPackageSelect={handleInsurancePackageSelect}
                       onSubOptionSelect={handleInsuranceSubOptionSelect}
                       onPreview={handlePackagePreview}
-                      contractFileCount={contractFiles.length > 0 ? contractFiles.length : undefined}
+                      contractFileCount={
+                        contractFiles.length > 0
+                          ? contractFiles.length
+                          : undefined
+                      }
                       onEditContract={handleEditContract}
                     />
                   </div>
@@ -356,9 +494,10 @@ export default function Home() {
                   disabled={currentStep === 1}
                   className={`
                     px-5 py-2.5 rounded-lg font-medium text-sm transition-all
-                    ${currentStep === 1
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm'
+                    ${
+                      currentStep === 1
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm"
                     }
                   `}
                 >
@@ -374,9 +513,11 @@ export default function Home() {
                     }
                     className={`
                       px-5 py-2.5 rounded-lg font-semibold text-sm transition-all
-                      ${(currentStep === 1 && !canProceedToStep2) || (currentStep === 2 && !canProceedToStep3)
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-sm hover:shadow-md'
+                      ${
+                        (currentStep === 1 && !canProceedToStep2) ||
+                        (currentStep === 2 && !canProceedToStep3)
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-sm hover:shadow-md"
                       }
                     `}
                   >
@@ -413,6 +554,15 @@ export default function Home() {
         error={claimResult.error}
         missingDocuments={claimResult.missingDocuments}
         suggestedDocuments={claimResult.suggestedDocuments}
+        ocrData={ocrResult}
+      />
+
+      {/* OCR Review Popup */}
+      <OcrReviewPopup
+        isOpen={showOcrReview}
+        onClose={() => setShowOcrReview(false)}
+        ocrData={ocrResult}
+        onConfirm={handleAnalyse}
       />
 
       {/* Package Preview Modal */}
@@ -426,8 +576,14 @@ export default function Home() {
       {/* Contract Upload Modal */}
       <ContractUploadModal
         isOpen={showContractModal}
-        packageName={INSURANCE_PACKAGES.find(p => p.id === insurancePackage)?.name || ''}
-        subOptionName={INSURANCE_PACKAGES.find(p => p.id === insurancePackage)?.subOptions?.find(s => s.id === insuranceSubOption)?.name || ''}
+        packageName={
+          INSURANCE_PACKAGES.find((p) => p.id === insurancePackage)?.name || ""
+        }
+        subOptionName={
+          INSURANCE_PACKAGES.find(
+            (p) => p.id === insurancePackage,
+          )?.subOptions?.find((s) => s.id === insuranceSubOption)?.name || ""
+        }
         initialFiles={contractFiles}
         onConfirm={handleContractConfirm}
         onSkip={handleContractSkip}
@@ -445,22 +601,35 @@ export default function Home() {
       {isCalculating && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm animate-fadeIn px-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-
             {/* Header: current progress step */}
             <div className="bg-gradient-to-r from-teal-500 to-cyan-500 px-6 pt-6 pb-5 text-white">
               <div className="flex items-center gap-4">
                 <div className="relative flex-shrink-0">
                   <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <svg
+                      className="w-5 h-5 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
                     </svg>
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-teal-100 uppercase tracking-wider mb-0.5">Đang xử lý</p>
+                  <p className="text-xs font-semibold text-teal-100 uppercase tracking-wider mb-0.5">
+                    Đang xử lý
+                  </p>
                   <p className="text-sm font-semibold text-white leading-snug">
-                    {processingSteps.filter(s => s.type === 'progress').slice(-1)[0]?.message || 'Đang kết nối máy chủ...'}
+                    {processingSteps
+                      .filter((s) => s.type === "progress")
+                      .slice(-1)[0]?.message || "Đang kết nối máy chủ..."}
                   </p>
                 </div>
               </div>
@@ -468,50 +637,96 @@ export default function Home() {
 
             {/* Body: document checklist */}
             <div className="px-5 py-4">
-              {processingSteps.some(s => s.type === 'document') && (
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Kiểm tra tài liệu</p>
+              {processingSteps.some((s) => s.type === "document") && (
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  Kiểm tra tài liệu
+                </p>
               )}
 
               <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                {processingSteps.filter(s => s.type === 'document').length === 0 && (
+                {processingSteps.filter((s) => s.type === "document").length ===
+                  0 && (
                   <div className="flex items-center gap-3 py-3">
                     <div className="w-4 h-4 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin flex-shrink-0"></div>
-                    <span className="text-sm text-gray-400">Đang đọc hồ sơ...</span>
+                    <span className="text-sm text-gray-400">
+                      Đang đọc hồ sơ...
+                    </span>
                   </div>
                 )}
-                {processingSteps.filter(s => s.type === 'document').map((step, idx) => (
-                  <div key={idx} className={`flex items-start gap-3 rounded-xl px-3 py-2.5 ${step.status === 'fail' ? 'bg-red-50 border border-red-100' : 'bg-emerald-50 border border-emerald-100'
-                    }`}>
-                    <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${step.status === 'fail' ? 'bg-red-500' : 'bg-emerald-500'
-                      }`}>
-                      {step.status === 'done' ? (
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      )}
+                {processingSteps
+                  .filter((s) => s.type === "document")
+                  .map((step, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-start gap-3 rounded-xl px-3 py-2.5 ${
+                        step.status === "fail"
+                          ? "bg-red-50 border border-red-100"
+                          : "bg-emerald-50 border border-emerald-100"
+                      }`}
+                    >
+                      <div
+                        className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${
+                          step.status === "fail"
+                            ? "bg-red-500"
+                            : "bg-emerald-500"
+                        }`}
+                      >
+                        {step.status === "done" ? (
+                          <svg
+                            className="w-3 h-3 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={3}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        ) : (
+                          <svg
+                            className="w-3 h-3 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={3}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`text-sm font-semibold leading-snug ${
+                            step.status === "fail"
+                              ? "text-red-700"
+                              : "text-emerald-700"
+                          }`}
+                        >
+                          {step.message}
+                        </p>
+                        {step.errors && step.errors.length > 0 && (
+                          <ul className="mt-1.5 space-y-1">
+                            {step.errors.map((err, i) => (
+                              <li
+                                key={i}
+                                className="text-xs text-red-500 flex items-start gap-1.5"
+                              >
+                                <span className="flex-shrink-0">—</span>
+                                <span>{err}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold leading-snug ${step.status === 'fail' ? 'text-red-700' : 'text-emerald-700'
-                        }`}>
-                        {step.message}
-                      </p>
-                      {step.errors && step.errors.length > 0 && (
-                        <ul className="mt-1.5 space-y-1">
-                          {step.errors.map((err, i) => (
-                            <li key={i} className="text-xs text-red-500 flex items-start gap-1.5">
-                              <span className="flex-shrink-0">—</span>
-                              <span>{err}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
@@ -521,8 +736,18 @@ export default function Home() {
                 onClick={handleCreateNewRequest}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-500 font-medium rounded-xl hover:bg-gray-100 transition-all text-sm flex items-center justify-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
                 </svg>
                 Tạo yêu cầu mới (Tab mới)
               </button>
