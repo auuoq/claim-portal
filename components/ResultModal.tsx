@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCircleXmark, faExclamationTriangle, faLightbulb, faFileContract } from "@fortawesome/free-solid-svg-icons";
 
 interface ResultModalProps {
   isOpen: boolean;
@@ -96,17 +98,7 @@ export default function ResultModal({
             <div className="py-6">
               <div className="text-center mb-5">
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg
-                    className="w-8 h-8 text-red-500"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <FontAwesomeIcon icon={faCircleXmark} className="w-8 h-8 text-red-500" />
                 </div>
                 <h4 className="text-xl font-bold text-gray-800 mb-1">
                   Hồ sơ không hợp lệ
@@ -117,19 +109,7 @@ export default function ResultModal({
                 <div className="mt-4">
                   <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <svg
-                        className="w-4 h-4 text-amber-500 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
+                      <FontAwesomeIcon icon={faExclamationTriangle} className="w-4 h-4 text-amber-500 flex-shrink-0" />
                       <p className="font-semibold text-amber-700 text-sm">
                         Giấy tờ bị thiếu:
                       </p>
@@ -148,19 +128,7 @@ export default function ResultModal({
                 <div className="mt-3">
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <svg
-                        className="w-4 h-4 text-blue-500 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                        />
-                      </svg>
+                      <FontAwesomeIcon icon={faLightbulb} className="w-4 h-4 text-blue-500 flex-shrink-0" />
                       <p className="font-semibold text-blue-700 text-sm">
                         Gợi ý các loại giấy tờ có thể upload:
                       </p>
@@ -318,19 +286,7 @@ export default function ResultModal({
                   {ocrData?.contract_details && (
                     <div className="bg-teal-50/50 rounded-xl p-5 border border-teal-100">
                       <h4 className="text-teal-800 font-semibold mb-4 flex items-center gap-2">
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
+                        <FontAwesomeIcon icon={faFileContract} className="w-4 h-4" />
                         Thông tin Hợp đồng
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">

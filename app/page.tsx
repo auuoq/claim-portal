@@ -34,6 +34,8 @@ import {
   createFilePreviewUrl,
   isImageFile,
 } from "@/lib/utils";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faShieldHalved, faFileContract, faCheck, faXmark, faPlus } from "@fortawesome/free-solid-svg-icons";
 
 interface FileWithPreview {
   id: string;
@@ -119,10 +121,12 @@ export default function Home() {
   };
 
   const handleInsuranceSubOptionSelect = (subOptionId: string) => {
+    if (insuranceSubOption !== subOptionId) {
+      setContractFiles([]);
+    }
     setInsuranceSubOption(subOptionId);
     setTreatmentType(null);
     setUploadedFiles([]);
-    setContractFiles([]);
     setShowContractModal(true);
   };
 
@@ -197,11 +201,11 @@ export default function Home() {
       );
       const packageData = insuranceSubOption
         ? contractData?.cac_goi.find(
-            (g: InsuranceCategory) =>
-              g.ten ===
-              selectedPkg?.subOptions?.find((s) => s.id === insuranceSubOption)
-                ?.name,
-          )
+          (g: InsuranceCategory) =>
+            g.ten ===
+            selectedPkg?.subOptions?.find((s) => s.id === insuranceSubOption)
+              ?.name,
+        )
         : null;
 
       const selectedTreatmentType = TREATMENT_TYPES.find(
@@ -398,19 +402,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-white p-2 rounded-lg shadow-sm">
-              <svg
-                className="w-6 h-6 text-teal-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                />
-              </svg>
+              <FontAwesomeIcon icon={faShieldHalved} className="w-6 h-6 text-teal-600" />
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">
@@ -494,10 +486,9 @@ export default function Home() {
                   disabled={currentStep === 1}
                   className={`
                     px-5 py-2.5 rounded-lg font-medium text-sm transition-all
-                    ${
-                      currentStep === 1
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm"
+                    ${currentStep === 1
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm"
                     }
                   `}
                 >
@@ -513,11 +504,10 @@ export default function Home() {
                     }
                     className={`
                       px-5 py-2.5 rounded-lg font-semibold text-sm transition-all
-                      ${
-                        (currentStep === 1 && !canProceedToStep2) ||
+                      ${(currentStep === 1 && !canProceedToStep2) ||
                         (currentStep === 2 && !canProceedToStep3)
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-sm hover:shadow-md"
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-sm hover:shadow-md"
                       }
                     `}
                   >
@@ -573,7 +563,6 @@ export default function Home() {
         previewContent={previewModal.content}
       />
 
-      {/* Contract Upload Modal */}
       <ContractUploadModal
         isOpen={showContractModal}
         packageName={
@@ -587,6 +576,14 @@ export default function Home() {
         initialFiles={contractFiles}
         onConfirm={handleContractConfirm}
         onSkip={handleContractSkip}
+        onPreviewFile={(file) => {
+          setPreviewFile({
+            isOpen: true,
+            name: file.name,
+            url: URL.createObjectURL(file),
+            isImage: isImageFile(file),
+          });
+        }}
       />
 
       <FilePreviewModal
@@ -607,19 +604,7 @@ export default function Home() {
                 <div className="relative flex-shrink-0">
                   <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <svg
-                      className="w-5 h-5 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
+                    <FontAwesomeIcon icon={faFileContract} className="w-5 h-5 text-white" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -646,68 +631,41 @@ export default function Home() {
               <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                 {processingSteps.filter((s) => s.type === "document").length ===
                   0 && (
-                  <div className="flex items-center gap-3 py-3">
-                    <div className="w-4 h-4 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin flex-shrink-0"></div>
-                    <span className="text-sm text-gray-400">
-                      Đang đọc hồ sơ...
-                    </span>
-                  </div>
-                )}
+                    <div className="flex items-center gap-3 py-3">
+                      <div className="w-4 h-4 rounded-full border-2 border-gray-200 border-t-teal-400 animate-spin flex-shrink-0"></div>
+                      <span className="text-sm text-gray-400">
+                        Đang đọc hồ sơ...
+                      </span>
+                    </div>
+                  )}
                 {processingSteps
                   .filter((s) => s.type === "document")
                   .map((step, idx) => (
                     <div
                       key={idx}
-                      className={`flex items-start gap-3 rounded-xl px-3 py-2.5 ${
-                        step.status === "fail"
-                          ? "bg-red-50 border border-red-100"
-                          : "bg-emerald-50 border border-emerald-100"
-                      }`}
+                      className={`flex items-start gap-3 rounded-xl px-3 py-2.5 ${step.status === "fail"
+                        ? "bg-red-50 border border-red-100"
+                        : "bg-emerald-50 border border-emerald-100"
+                        }`}
                     >
                       <div
-                        className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${
-                          step.status === "fail"
-                            ? "bg-red-500"
-                            : "bg-emerald-500"
-                        }`}
+                        className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${step.status === "fail"
+                          ? "bg-red-500"
+                          : "bg-emerald-500"
+                          }`}
                       >
                         {step.status === "done" ? (
-                          <svg
-                            className="w-3 h-3 text-white"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={3}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
+                          <FontAwesomeIcon icon={faCheck} className="w-3 h-3 text-white" />
                         ) : (
-                          <svg
-                            className="w-3 h-3 text-white"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={3}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
+                          <FontAwesomeIcon icon={faXmark} className="w-3 h-3 text-white" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p
-                          className={`text-sm font-semibold leading-snug ${
-                            step.status === "fail"
-                              ? "text-red-700"
-                              : "text-emerald-700"
-                          }`}
+                          className={`text-sm font-semibold leading-snug ${step.status === "fail"
+                            ? "text-red-700"
+                            : "text-emerald-700"
+                            }`}
                         >
                           {step.message}
                         </p>
@@ -736,19 +694,7 @@ export default function Home() {
                 onClick={handleCreateNewRequest}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-500 font-medium rounded-xl hover:bg-gray-100 transition-all text-sm flex items-center justify-center gap-2"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
+                <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
                 Tạo yêu cầu mới (Tab mới)
               </button>
             </div>

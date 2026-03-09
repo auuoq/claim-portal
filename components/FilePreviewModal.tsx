@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXmark, faFile } from '@fortawesome/free-solid-svg-icons';
 
 interface FilePreviewModalProps {
     isOpen: boolean;
@@ -48,9 +50,7 @@ export default function FilePreviewModal({
                         onClick={onClose}
                         className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors shadow-lg"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <FontAwesomeIcon icon={faXmark} className="w-5 h-5" />
                     </button>
                 </div>
 
@@ -72,9 +72,7 @@ export default function FilePreviewModal({
                     ) : (
                         <div className="p-12 text-center">
                             <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-gray-400">
-                                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                </svg>
+                                <FontAwesomeIcon icon={faFile} className="w-10 h-10" />
                             </div>
                             <h4 className="text-lg font-semibold text-gray-800">Không thể xem trước</h4>
                             <p className="text-gray-500 mt-2 max-w-xs mx-auto">
