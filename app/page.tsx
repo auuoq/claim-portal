@@ -66,8 +66,11 @@ export default function Home() {
     error?: string;
     missingDocuments?: { ma: string; ten: string }[];
     suggestedDocuments?: { ma: string; ten: string }[];
+    uploadedDocuments?: { ma: string; ten: string }[];
   }>({});
   const [ocrResult, setOcrResult] = useState<any>(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState<{ ma: string; ten: string }[]>([]);
+  const [missingDocuments, setMissingDocuments] = useState<{ ma: string; ten: string }[]>([]);
   const [showOcrReview, setShowOcrReview] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingDocumentTypes, setIsLoadingDocumentTypes] = useState(false);
@@ -236,13 +239,18 @@ export default function Home() {
               { type: "document", message: name, status: "done" },
             ]);
           },
-          onResult: (data) => {
-            ocrData = data;
+          onResult: (resultEvent) => {
+            ocrData = resultEvent;
           },
           onDone: () => {
             setIsCalculating(false);
             if (ocrData) {
-              setOcrResult(ocrData);
+              const payload = ocrData.data != null && typeof ocrData.data === "object"
+                ? ocrData.data
+                : ocrData;
+              setOcrResult(payload);
+              setUploadedDocuments(payload.uploaded_documents || []);
+              setMissingDocuments(payload.missing_documents || []);
               setShowOcrReview(true);
             } else {
               setClaimResult({
@@ -251,14 +259,27 @@ export default function Home() {
               setShowResultModal(true);
             }
           },
-          onMissingDocuments: (message, docs) => {
+          onMissingDocuments: (message, docs, uploadedDocs) => {
             setIsCalculating(false);
-            setClaimResult({ error: message, missingDocuments: docs });
+            if (uploadedDocs) setUploadedDocuments(uploadedDocs);
+            setMissingDocuments(docs);
+            setClaimResult({
+              error: message,
+              missingDocuments: docs,
+              uploadedDocuments: uploadedDocs ?? undefined,
+            });
             setShowResultModal(true);
           },
-          onError: (error, missingDocuments, suggestedDocuments) => {
+          onError: (error, missingDocs, suggestedDocs, uploadedDocs) => {
             setIsCalculating(false);
-            setClaimResult({ error, missingDocuments, suggestedDocuments });
+            if (uploadedDocs) setUploadedDocuments(uploadedDocs);
+            if (missingDocs) setMissingDocuments(missingDocs);
+            setClaimResult({
+              error,
+              missingDocuments: missingDocs,
+              suggestedDocuments: suggestedDocs,
+              uploadedDocuments: uploadedDocs ?? undefined,
+            });
             setShowResultModal(true);
           },
         },
@@ -283,8 +304,18 @@ export default function Home() {
 
     let resultMarkdown = "";
 
+    // Payload for /analyse: only fields BE expects (do not send ho_so_full / session_id)
+    const payload = {
+      hop_dong: dataToAnalyse.hop_dong,
+      ho_so: dataToAnalyse.ho_so,
+      loai_dieu_tri: dataToAnalyse.loai_dieu_tri,
+      contract_details: dataToAnalyse.contract_details,
+      uploaded_documents: dataToAnalyse.uploaded_documents ?? uploadedDocuments,
+      missing_documents: dataToAnalyse.missing_documents ?? missingDocuments,
+    };
+
     try {
-      await submitClaimAnalyse(dataToAnalyse, {
+      await submitClaimAnalyse(payload, {
         onProgress: (message) => {
           setProcessingSteps((prev) => [
             ...prev,
@@ -297,8 +328,10 @@ export default function Home() {
             { type: "document", message: name, status: "done" },
           ]);
         },
-        onResult: (markdown) => {
-          resultMarkdown = markdown;
+        onResult: (resultEvent) => {
+          resultMarkdown = typeof resultEvent === "string" ? resultEvent : (resultEvent.data ?? resultEvent);
+          if (resultEvent.uploaded_documents) setUploadedDocuments(resultEvent.uploaded_documents);
+          if (resultEvent.missing_documents) setMissingDocuments(resultEvent.missing_documents);
         },
         onDone: () => {
           setIsCalculating(false);
@@ -324,16 +357,29 @@ export default function Home() {
           }
           setShowResultModal(true);
         },
-        onMissingDocuments: (message, docs) => {
+        onMissingDocuments: (message, docs, uploadedDocs) => {
           setIsCalculating(false);
           setShowOcrReview(false);
-          setClaimResult({ error: message, missingDocuments: docs });
+          if (uploadedDocs) setUploadedDocuments(uploadedDocs);
+          setMissingDocuments(docs);
+          setClaimResult({
+            error: message,
+            missingDocuments: docs,
+            uploadedDocuments: uploadedDocs ?? undefined,
+          });
           setShowResultModal(true);
         },
-        onError: (error, missingDocuments, suggestedDocuments) => {
+        onError: (error, missingDocs, suggestedDocs, uploadedDocs) => {
           setIsCalculating(false);
           setShowOcrReview(false);
-          setClaimResult({ error, missingDocuments, suggestedDocuments });
+          if (uploadedDocs) setUploadedDocuments(uploadedDocs);
+          if (missingDocs) setMissingDocuments(missingDocs);
+          setClaimResult({
+            error,
+            missingDocuments: missingDocs,
+            suggestedDocuments: suggestedDocs,
+            uploadedDocuments: uploadedDocs ?? undefined,
+          });
           setShowResultModal(true);
         },
       });
@@ -545,6 +591,8 @@ export default function Home() {
         missingDocuments={claimResult.missingDocuments}
         suggestedDocuments={claimResult.suggestedDocuments}
         ocrData={ocrResult}
+        uploadedDocuments={claimResult.uploadedDocuments ?? uploadedDocuments}
+        allMissingDocuments={claimResult.missingDocuments ?? missingDocuments}
       />
 
       {/* OCR Review Popup */}
