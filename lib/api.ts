@@ -1,5 +1,39 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_TEST_URL || "http://10.124.56.98:5042/api";
+  process.env.NEXT_PUBLIC_API_TEST_URL || "http://127.0.0.1:5041/api";
+
+// --- Document type (giấy tờ) ---
+export interface DocType {
+  ma: string;
+  ten: string;
+}
+
+// --- OCR result types (per-page display) ---
+export interface HoSoPageEntry {
+  content: string;
+  source: string;
+  page_number: number;
+  file_name: string;
+  ten_giay_to: string;
+}
+
+export interface OcrResult {
+  session_id?: string;
+  ho_so: Record<string, any[]>;
+  ho_so_full?: Record<string, HoSoPageEntry[]>;
+  stats?: { total_pages: number; processed: number; removed: number };
+  removed_pages?: Array<{ source: string; reason: string }>;
+  classified_doc_types?: string[];
+  uploaded_documents?: DocType[];
+  missing_documents?: DocType[];
+  contract_details?: any;
+  hop_dong?: { ten: string; goi: string };
+  loai_dieu_tri?: string;
+}
+
+/** Build URL for lazy-loading original PDF page image. */
+export function buildPageImageUrl(sessionId: string, source: string): string {
+  return `${API_BASE_URL}/pages/${sessionId}/${encodeURIComponent(source)}`;
+}
 
 // Types for API responses
 export interface TreatmentType {
@@ -58,12 +92,14 @@ export interface SSEErrorEvent {
   message: string;
   missing_documents?: { ma: string; ten: string }[];
   suggested_documents?: { ma: string; ten: string }[];
+  uploaded_documents?: { ma: string; ten: string }[];
 }
 
 export interface SSEMissingDocumentsEvent {
   event: "missing_documents";
   message: string;
   missing_documents: { ma: string; ten: string }[];
+  uploaded_documents?: { ma: string; ten: string }[];
 }
 
 export interface SSEDoneEvent {
@@ -85,12 +121,14 @@ export interface ClaimStreamCallbacks {
   onDone: () => void;
   onMissingDocuments: (
     message: string,
-    docs: { ma: string; ten: string }[],
+    missingDocs: { ma: string; ten: string }[],
+    uploadedDocs?: { ma: string; ten: string }[],
   ) => void;
   onError: (
     error: string,
     missingDocuments?: { ma: string; ten: string }[],
     suggestedDocuments?: { ma: string; ten: string }[],
+    uploadedDocuments?: { ma: string; ten: string }[],
   ) => void;
 }
 
@@ -219,8 +257,7 @@ async function handleSSEStream(
           } else if (event.event === "document") {
             callbacks.onDocument(event.name);
           } else if (event.event === "result") {
-            const payloadData = event.data !== undefined ? event.data : event;
-            callbacks.onResult(payloadData);
+            callbacks.onResult(event);
           } else if (event.event === "done") {
             doneReceived = true;
             callbacks.onDone();
@@ -228,6 +265,7 @@ async function handleSSEStream(
             callbacks.onMissingDocuments(
               event.message,
               event.missing_documents,
+              event.uploaded_documents,
             );
             return;
           } else if (event.event === "error") {
@@ -235,6 +273,7 @@ async function handleSSEStream(
               event.message,
               event.missing_documents,
               event.suggested_documents,
+              event.uploaded_documents,
             );
             return;
           }
