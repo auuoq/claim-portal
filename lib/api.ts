@@ -1,159 +1,348 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://oxidative-unexpedited-vanda.ngrok-free.dev/api';
 
+// --- Document type (giấy tờ) ---
+export interface DocType {
+  ma: string;
+  ten: string;
+}
+
+// --- OCR result types (per-page display) ---
+export interface HoSoPageEntry {
+  content: string;
+  source: string;
+  page_number: number;
+  file_name: string;
+  ten_giay_to: string;
+}
+
+export interface OcrResult {
+  session_id?: string;
+  ho_so: Record<string, any[]>;
+  ho_so_full?: Record<string, HoSoPageEntry[]>;
+  stats?: { total_pages: number; processed: number; removed: number };
+  removed_pages?: Array<{ source: string; reason: string }>;
+  classified_doc_types?: string[];
+  uploaded_documents?: DocType[];
+  missing_documents?: DocType[];
+  contract_details?: any;
+  hop_dong?: { ten: string; goi: string };
+  loai_dieu_tri?: string;
+}
+
+/** Build URL for lazy-loading original PDF page image. */
+export function buildPageImageUrl(sessionId: string, source: string): string {
+  return `${API_BASE_URL}/pages/${sessionId}/${encodeURIComponent(source)}`;
+}
+
+
 // Types for API responses
 export interface TreatmentType {
-    ma: string;
-    ten: string;
+  ma: string;
+  ten: string;
 }
 
 export interface InsurancePackage {
+  ten: string;
+  cac_goi: {
     ten: string;
-    cac_goi: {
-        ten: string;
-        preview: string;
-    }[];
+    preview: string;
+  }[];
 }
 
 export interface DocumentType {
-    ma: string;
-    ten: string;
-    mo_ta: string;
-    bat_buoc: boolean;
+  ma: string;
+  ten: string;
+  mo_ta: string;
+  bat_buoc: boolean;
 }
 
 export interface DocumentTypesResponse {
-    status: string;
-    data: DocumentType[];
+  status: string;
+  data: DocumentType[];
 }
 
 export interface InfoResponse {
-    status: string;
-    data: {
-        loai_dieu_tri: TreatmentType[];
-        hop_dong: InsurancePackage[];
-    };
+  status: string;
+  data: {
+    loai_dieu_tri: TreatmentType[];
+    hop_dong: InsurancePackage[];
+  };
 }
 
-export interface ClaimResponse {
-    status: string;
-    data?: string; // Markdown content
-    invalid_types?: string[];
-    message?: string;
+// SSE Event types
+export interface SSEProgressEvent {
+  event: "progress";
+  message: string;
+}
+
+export interface SSEDocumentEvent {
+  event: "document";
+  name: string;
+  status: "done"; // API spec: always 'done'
+}
+
+export interface SSEResultEvent {
+  event: "result";
+  data?: any; // Changed. Can be OCR payload or markdown string/object
+  [key: string]: any;
+}
+
+export interface SSEErrorEvent {
+  event: "error";
+  message: string;
+  missing_documents?: { ma: string; ten: string }[];
+  suggested_documents?: { ma: string; ten: string }[];
+  uploaded_documents?: { ma: string; ten: string }[];
+}
+
+export interface SSEMissingDocumentsEvent {
+  event: "missing_documents";
+  message: string;
+  missing_documents: { ma: string; ten: string }[];
+  uploaded_documents?: { ma: string; ten: string }[];
+}
+
+export interface SSEDoneEvent {
+  event: "done";
+}
+
+export type SSEEvent =
+  | SSEProgressEvent
+  | SSEDocumentEvent
+  | SSEResultEvent
+  | SSEDoneEvent
+  | SSEErrorEvent
+  | SSEMissingDocumentsEvent;
+
+export interface ClaimStreamCallbacks {
+  onProgress: (message: string) => void;
+  onDocument: (name: string) => void;
+  onResult: (data: any) => void;
+  onDone: () => void;
+  onMissingDocuments: (
+    message: string,
+    missingDocs: { ma: string; ten: string }[],
+    uploadedDocs?: { ma: string; ten: string }[],
+  ) => void;
+  onError: (
+    error: string,
+    missingDocuments?: { ma: string; ten: string }[],
+    suggestedDocuments?: { ma: string; ten: string }[],
+    uploadedDocuments?: { ma: string; ten: string }[],
+  ) => void;
 }
 
 // Fetch insurance packages
 export async function fetchInsuranceInfo(): Promise<InfoResponse> {
-    try {
-        const response = await fetch(`${API_BASE_URL}/info`, {
-            headers: {
-                'ngrok-skip-browser-warning': '69420',
-            },
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error fetching insurance info:', error);
-        throw error;
+  try {
+    const response = await fetch(`${API_BASE_URL}/info`, {
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching insurance info:", error);
+    throw error;
+  }
 }
 
 // Fetch document types based on treatment type code (ma)
-export async function fetchDocumentTypes(ma: string): Promise<DocumentTypesResponse> {
-    try {
-        const response = await fetch(`${API_BASE_URL}/document-types?ma=${ma}`, {
-            headers: {
-                'ngrok-skip-browser-warning': '69420',
-            },
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error fetching document types:', error);
-        throw error;
+export async function fetchDocumentTypes(
+  ma: string,
+): Promise<DocumentTypesResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/document-types?ma=${ma}`, {
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching document types:", error);
+    throw error;
+  }
 }
 
 // Convert file to base64
 function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-    });
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
 }
 
-// Submit claim
-export async function submitClaim(data: {
+// Generic SSE POST function
+async function handleSSEStream(
+  endpoint: string,
+  payload: Record<string, unknown>,
+  callbacks: ClaimStreamCallbacks,
+) {
+  console.group(`📤 SENDING TO API (SSE): ${endpoint}`);
+  console.log("URL:", `${API_BASE_URL}${endpoint}`);
+  const summaryPayload = { ...payload };
+  if (summaryPayload.ho_so && (summaryPayload.ho_so as any).files) {
+    summaryPayload.ho_so = {
+      files: (summaryPayload.ho_so as any).files.map((f: any) => ({
+        name: f.name,
+        data: `${f.data?.substring(0, 50)}... (${f.data?.length} chars)`,
+      })),
+    };
+  }
+  console.log("Payload (maybe truncated):", summaryPayload);
+  console.groupEnd();
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.error("Fetch error:", err);
+    callbacks.onError("Không thể kết nối đến máy chủ");
+    return;
+  }
+
+  if (!response.ok) {
+    callbacks.onError(`Lỗi máy chủ: ${response.status}`);
+    return;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    callbacks.onError("Không đọc được phản hồi từ máy chủ");
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let doneReceived = false;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() ?? "";
+
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith("data:")) continue;
+
+        const jsonStr = line.replace(/^data:\s*/, "");
+        try {
+          const event: SSEEvent = JSON.parse(jsonStr);
+          console.log("📥 SSE Event:", event);
+
+          if (event.event === "progress") {
+            callbacks.onProgress(event.message);
+          } else if (event.event === "document") {
+            callbacks.onDocument(event.name);
+          } else if (event.event === "result") {
+            callbacks.onResult(event);
+          } else if (event.event === "done") {
+            doneReceived = true;
+            callbacks.onDone();
+          } else if (event.event === "missing_documents") {
+            callbacks.onMissingDocuments(
+              event.message,
+              event.missing_documents,
+              event.uploaded_documents,
+            );
+            return;
+          } else if (event.event === "error") {
+            callbacks.onError(
+              event.message,
+              event.missing_documents,
+              event.suggested_documents,
+              event.uploaded_documents,
+            );
+            return;
+          }
+        } catch (parseError) {
+          console.warn("Failed to parse SSE event:", jsonStr, parseError);
+        }
+      }
+    }
+    if (!doneReceived) {
+      callbacks.onDone();
+    }
+  } catch (streamError) {
+    console.error("Stream reading error:", streamError);
+    callbacks.onError("Lỗi khi đọc dữ liệu từ máy chủ");
+  }
+}
+
+// Submit claim for OCR
+export async function submitClaimOcr(
+  data: {
     hopDong: string;
     goi: string;
     loai_dieu_tri: string;
-    hoSo: Record<string, File[]>;
-}): Promise<ClaimResponse> {
-    try {
-        // Convert files to base64
-        const hoSoBase64: Record<string, string[]> = {};
+    files: File[];
+    contractFiles?: File[];
+  },
+  callbacks: ClaimStreamCallbacks,
+): Promise<void> {
+  const filesBase64 = await Promise.all(
+    data.files.map(async (file) => ({
+      name: file.name,
+      data: await fileToBase64(file),
+    })),
+  );
 
-        for (const [docType, files] of Object.entries(data.hoSo)) {
-            hoSoBase64[docType] = await Promise.all(
-                files.map(file => fileToBase64(file))
-            );
-        }
+  const contractFilesBase64 =
+    data.contractFiles && data.contractFiles.length > 0
+      ? await Promise.all(
+          data.contractFiles.map(async (f) => ({
+            name: f.name,
+            data: await fileToBase64(f),
+          })),
+        )
+      : null;
 
-        const payload = {
-            hop_dong: {
-                ten: data.hopDong,
-                goi: data.goi
-            },
-            loai_dieu_tri: data.loai_dieu_tri,
-            ho_so: hoSoBase64
-        };
+  const payload: Record<string, unknown> = {
+    hop_dong: {
+      ten: data.hopDong,
+      goi: data.goi,
+    },
+    loai_dieu_tri: data.loai_dieu_tri,
+    ho_so: {
+      files: filesBase64,
+    },
+  };
 
-        console.group('📤 SENDING TO API');
-        console.log('URL:', `${API_BASE_URL}/claim`);
-        console.log('Payload:', {
-            ...payload,
-            ho_so: Object.fromEntries(
-                Object.entries(hoSoBase64).map(([key, files]) => [
-                    key,
-                    files.map(f => `${f.substring(0, 50)}... (${f.length} chars)`)
-                ])
-            )
-        });
-        console.groupEnd();
+  if (contractFilesBase64) {
+    payload.hop_dong_ca_nhan = {
+      files: contractFilesBase64,
+    };
+  }
 
-        const response = await fetch(`${API_BASE_URL}/claim`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': '69420',
-            },
-            body: JSON.stringify(payload)
-        });
+  await handleSSEStream("/claim/ocr", payload, callbacks);
+}
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        console.group('📥 RESPONSE FROM API');
-        console.log('Status:', result.status);
-        console.log('Data length:', result.data?.length || 0);
-        if (result.invalid_types) {
-            console.warn('Invalid Types:', result.invalid_types);
-        }
-        console.groupEnd();
-
-        return result;
-    } catch (error) {
-        console.error('Error submitting claim:', error);
-        throw error;
-    }
+// Submit claim for Analyse
+export async function submitClaimAnalyse(
+  payload: Record<string, unknown>,
+  callbacks: ClaimStreamCallbacks,
+): Promise<void> {
+  await handleSSEStream("/claim/analyse", payload, callbacks);
 }

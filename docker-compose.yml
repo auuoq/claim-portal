@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  claim-portal-fe:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claim-portal-fe-test
+    restart: unless-stopped
+    ports:
+      - "3044:3000"
+    env_file:
+      - .env.local

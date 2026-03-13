@@ -2,6 +2,8 @@
 
 import { useRef } from 'react';
 import { validateFile, formatFileSize, isImageFile, createFilePreviewUrl } from '@/lib/utils';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheck, faCloudArrowUp } from '@fortawesome/free-solid-svg-icons';
 
 interface FileWithPreview {
     id: string;
@@ -88,12 +90,9 @@ export default function DocumentUploadItem({
             ${hasFiles ? 'bg-teal-100 text-teal-600' : 'bg-gray-100 text-gray-400'}
           `}>
                         {hasFiles ? (
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
+                            <FontAwesomeIcon icon={faCheck} className="w-4 h-4" />
                         ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            </svg>
+                            <div className="w-4 h-4"></div>
                         )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -141,9 +140,7 @@ export default function DocumentUploadItem({
                             : 'border-teal-500 text-teal-600 hover:bg-teal-50'
                         }`}
                 >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
+                    <FontAwesomeIcon icon={faCloudArrowUp} className="w-3.5 h-3.5" />
                     Tải lên
                 </button>
 
