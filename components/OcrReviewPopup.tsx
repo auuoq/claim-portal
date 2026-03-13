@@ -429,7 +429,7 @@ export default function OcrReviewPopup({
             Sửa file / OCR lại
           </button>
           <button
-            onClick={() => onConfirm(ocrData)}
+            onClick={() => onConfirm(ocrData!)}
             disabled={isSubmitting || !ocrData}
             className="px-6 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all font-medium flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
           >
