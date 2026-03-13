@@ -1,5 +1,4 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_TEST_URL || "http://127.0.0.1:5041/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://oxidative-unexpedited-vanda.ngrok-free.dev/api';
 
 // --- Document type (giấy tờ) ---
 export interface DocType {
@@ -34,6 +33,7 @@ export interface OcrResult {
 export function buildPageImageUrl(sessionId: string, source: string): string {
   return `${API_BASE_URL}/pages/${sessionId}/${encodeURIComponent(source)}`;
 }
+
 
 // Types for API responses
 export interface TreatmentType {
