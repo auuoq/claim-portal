@@ -31,9 +31,11 @@ export interface OcrResult {
   loai_dieu_tri?: string;
 }
 
-/** Build URL for lazy-loading original PDF page image. */
+/** Build URL for lazy-loading original PDF page image via internal proxy. */
 export function buildPageImageUrl(sessionId: string, source: string): string {
-  return `${API_BASE_URL}/pages/${sessionId}/${encodeURIComponent(source)}`;
+  const url = `/api/proxy-image?sessionId=${sessionId}&source=${encodeURIComponent(source)}`;
+  console.log("🖼️ Building Proxy Image URL:", url);
+  return url;
 }
 
 // Types for API responses
