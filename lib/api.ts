@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://oxidative-unexpedited-vanda.ngrok-free.dev/api';
+=======
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_TEST_URL ||
+  "https://oxidative-unexpedited-vanda.ngrok-free.dev/api";
+>>>>>>> test
 
 // --- Document type (giấy tờ) ---
 export interface DocType {
@@ -29,9 +35,11 @@ export interface OcrResult {
   loai_dieu_tri?: string;
 }
 
-/** Build URL for lazy-loading original PDF page image. */
+/** Build URL for lazy-loading original PDF page image via internal proxy. */
 export function buildPageImageUrl(sessionId: string, source: string): string {
-  return `${API_BASE_URL}/pages/${sessionId}/${encodeURIComponent(source)}`;
+  const url = `/api/proxy-image?sessionId=${sessionId}&source=${encodeURIComponent(source)}`;
+  console.log("🖼️ Building Proxy Image URL:", url);
+  return url;
 }
 
 
