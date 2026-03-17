@@ -55,6 +55,7 @@ export default function OcrReviewPopup({
   const [imageError, setImageError] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showMarkdownFullScreen, setShowMarkdownFullScreen] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(false);
 
   const useFull = Boolean(
     ocrData?.ho_so_full && Object.keys(ocrData.ho_so_full).length > 0,
@@ -93,6 +94,50 @@ export default function OcrReviewPopup({
       ? buildPageImageUrl(ocrData.session_id, currentPage.source)
       : "";
 
+  const activeContentArray = useFull
+    ? (ocrData?.ho_so_full?.[hoSoFullResolvedKey ?? activeTab] || [])
+    : (ocrData?.ho_so?.[activeTab] || []);
+
+  const activeMarkdownLegacy = activeContentArray
+    .map((item: any) => (typeof item === "object" && item?.content != null ? item.content : item))
+    .join("\n\n---\n\n");
+
+  const activeMarkdown = currentPage ? currentPage.content : activeMarkdownLegacy;
+  const canShowImage = Boolean(useFull && currentPage && ocrData?.session_id);
+
+  // Pagination logic: Get a range of pages to show (e.g. 1 2 ... 5 6 7 ... 10)
+  const getPageRange = () => {
+    const total = pages.length;
+    const current = pageIndex + 1;
+    const delta = 1; // Number of pages either side of current to show
+    const range: number[] = [];
+    const rangeWithDots: (number | string)[] = [];
+    let l: number | undefined;
+
+    range.push(1);
+    for (let i = current - delta; i <= current + delta; i++) {
+      if (i < total && i > 1) {
+        range.push(i);
+      }
+    }
+    if (total > 1) {
+      range.push(total);
+    }
+
+    for (const i of range) {
+      if (l !== undefined) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push("...");
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+    return rangeWithDots;
+  };
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -115,21 +160,14 @@ export default function OcrReviewPopup({
   useEffect(() => {
     setPageIndex(0);
     setImageError(false);
-  }, [activeTab]);
+    setIsImageLoading(canShowImage);
+  }, [activeTab, canShowImage]);
   useEffect(() => {
     setImageError(false);
-  }, [pageIndex]);
+    setIsImageLoading(canShowImage);
+  }, [pageIndex, canShowImage]);
 
   if (!isOpen) return null;
-
-  const activeContentArray = useFull
-    ? (ocrData?.ho_so_full?.[hoSoFullResolvedKey ?? activeTab] || [])
-    : (ocrData?.ho_so?.[activeTab] || []);
-  const activeMarkdownLegacy = activeContentArray
-    .map((item: any) => (typeof item === "object" && item?.content != null ? item.content : item))
-    .join("\n\n---\n\n");
-  const activeMarkdown = currentPage ? currentPage.content : activeMarkdownLegacy;
-  const canShowImage = useFull && currentPage && ocrData?.session_id;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fadeIn">
@@ -247,10 +285,10 @@ export default function OcrReviewPopup({
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
             {/* Pagination: Trang 1, 2, 3... rõ ràng + nút xem ảnh / full màn hình */}
             {useFull && pages.length > 0 && (
-              <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-gray-600 mr-1">Trang:</span>
-                  <div className="flex items-center gap-1 overflow-x-auto max-w-[50vw] hide-scrollbar">
+              <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 overflow-hidden">
+                <div className="flex items-center gap-2 overflow-hidden flex-nowrap">
+                  <span className="text-sm font-medium text-gray-600 mr-1 flex-shrink-0">Trang:</span>
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       type="button"
                       disabled={pageIndex === 0}
@@ -260,21 +298,27 @@ export default function OcrReviewPopup({
                     >
                       <FontAwesomeIcon icon={faChevronLeft} className="w-4 h-4" />
                     </button>
-                    {pages.map((_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setPageIndex(i)}
-                        className={`
-                          min-w-[2rem] h-8 px-2 rounded text-sm font-medium transition-colors
-                          ${i === pageIndex
-                            ? "bg-teal-500 text-white shadow-sm"
-                            : "text-gray-600 hover:bg-gray-200 bg-white border border-gray-200"}
-                        `}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
+                    {getPageRange().map((p, idx) => {
+                      if (p === "...") {
+                        return <span key={`dot-${idx}`} className="px-1 text-gray-400">...</span>;
+                      }
+                      const i = (p as number) - 1;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setPageIndex(i)}
+                          className={`
+                            min-w-[2rem] h-8 px-2 rounded text-sm font-medium transition-colors
+                            ${i === pageIndex
+                              ? "bg-teal-500 text-white shadow-sm"
+                              : "text-gray-600 hover:bg-gray-200 bg-white border border-gray-200"}
+                          `}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
                     <button
                       type="button"
                       disabled={pageIndex >= pages.length - 1}
@@ -286,12 +330,12 @@ export default function OcrReviewPopup({
                     </button>
                   </div>
                   {currentPage && (
-                    <span className="text-xs text-gray-500 ml-1 truncate max-w-[180px]" title={currentPage.file_name}>
+                    <span className="text-xs text-gray-400 ml-1 truncate max-w-[120px] hidden sm:inline" title={currentPage.file_name}>
                       {currentPage.file_name}
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {canShowImage && (
                     <button
                       type="button"
@@ -356,13 +400,24 @@ export default function OcrReviewPopup({
                   <p className="text-sm">Trang không tồn tại hoặc phiên đã hết hạn (30 phút).</p>
                 </div>
               ) : (
-                <img
-                  src={imageUrl}
-                  alt={`Trang ${currentPage!.page_number}`}
-                  className="max-w-full max-h-[90vh] object-contain shadow-2xl rounded"
-                  onError={() => setImageError(true)}
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <div className="relative">
+                  {isImageLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50 rounded z-10">
+                      <FontAwesomeIcon icon={faCircleNotch} className="w-10 h-10 text-teal-500" spin />
+                    </div>
+                  )}
+                  <img
+                    src={imageUrl}
+                    alt={`Trang ${currentPage!.page_number}`}
+                    className={`max-w-full max-h-[90vh] object-contain shadow-2xl rounded transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
+                    onLoad={() => setIsImageLoading(false)}
+                    onError={() => {
+                      setImageError(true);
+                      setIsImageLoading(false);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -468,12 +523,23 @@ export default function OcrReviewPopup({
                         <p className="font-medium">Không tải được ảnh trang</p>
                       </div>
                     ) : (
-                      <img
-                        src={imageUrl}
-                        alt={`Trang ${currentPage?.page_number}`}
-                        className="max-w-full m-auto shadow-md rounded"
-                        onError={() => setImageError(true)}
-                      />
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        {isImageLoading && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50 z-10">
+                            <FontAwesomeIcon icon={faCircleNotch} className="w-12 h-12 text-teal-500" spin />
+                          </div>
+                        )}
+                        <img
+                          src={imageUrl}
+                          alt={`Trang ${currentPage?.page_number}`}
+                          className={`max-w-full m-auto shadow-md rounded transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
+                          onLoad={() => setIsImageLoading(false)}
+                          onError={() => {
+                            setImageError(true);
+                            setIsImageLoading(false);
+                          }}
+                        />
+                      </div>
                     )
                   ) : (
                      <div className="text-center text-gray-500 bg-white p-8 rounded-xl shadow-sm">
