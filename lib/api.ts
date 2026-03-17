@@ -1,10 +1,7 @@
-<<<<<<< HEAD
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://oxidative-unexpedited-vanda.ngrok-free.dev/api';
-=======
 const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_TEST_URL ||
   "https://oxidative-unexpedited-vanda.ngrok-free.dev/api";
->>>>>>> test
 
 // --- Document type (giấy tờ) ---
 export interface DocType {

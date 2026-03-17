@@ -15,6 +15,7 @@ import {
   faExpand,
   faCheckCircle,
   faTriangleExclamation,
+  faCircleNotch,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   buildPageImageUrl,
