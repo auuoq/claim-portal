@@ -1,5 +1,6 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_TEST_URL || "http://127.0.0.1:5041/api";
+  process.env.NEXT_PUBLIC_API_TEST_URL ||
+  "https://oxidative-unexpedited-vanda.ngrok-free.dev/api";
 
 // --- Document type (giấy tờ) ---
 export interface DocType {
