@@ -1,5 +1,6 @@
 // This file will be populated dynamically from API
 // Keeping structure for reference
+import type { HopDongNhom } from "./api";
 
 export interface InsuranceSubOption {
   id: string;
@@ -37,10 +38,12 @@ export interface TreatmentTypeData {
 export interface InsuranceInfoData {
   loai_dieu_tri: TreatmentTypeData[];
   hop_dong: InsuranceContract[];
+  hop_dong_nhom?: HopDongNhom[];
 }
 
 // Default empty - will be loaded from API
 export let INSURANCE_PACKAGES: InsurancePackageType[] = [];
+export let HOP_DONG_NHOM: HopDongNhom[] = [];
 export interface DocumentType {
   id: string;
   label: string;
@@ -78,6 +81,9 @@ export function updateFromAPI(data: InsuranceInfoData) {
     name: type.ten,
     ma: type.ma
   }));
+
+  // Update group contracts
+  HOP_DONG_NHOM = data.hop_dong_nhom ?? [];
 
   // Convert API format to our format
   INSURANCE_PACKAGES = data.hop_dong.map((contract, index) => {

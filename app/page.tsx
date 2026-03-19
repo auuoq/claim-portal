@@ -17,11 +17,14 @@ import {
   fetchDocumentTypes,
   submitClaimOcr,
   submitClaimAnalyse,
+  submitGroupOcr,
+  submitGroupAnalyse,
 } from "@/lib/api";
 import {
   updateFromAPI,
   updateDocumentTypesFromAPI,
   INSURANCE_PACKAGES,
+  HOP_DONG_NHOM,
   DOCUMENT_TYPES,
   TREATMENT_TYPES,
   InsuranceInfoData,
@@ -29,6 +32,7 @@ import {
   InsuranceContract,
   InsuranceCategory,
 } from "@/lib/constants";
+import GroupContractSelector from "@/components/GroupContractSelector";
 import {
   generateUniqueId,
   createFilePreviewUrl,
@@ -52,12 +56,18 @@ interface ProcessingStep {
 }
 
 export default function Home() {
+  const [claimType, setClaimType] = useState<"ca_nhan" | "nhom">("ca_nhan");
   const [currentStep, setCurrentStep] = useState(1);
   const [insurancePackage, setInsurancePackage] = useState<string | null>(null);
   const [insuranceSubOption, setInsuranceSubOption] = useState<string | null>(
     null,
   );
   const [treatmentType, setTreatmentType] = useState<string | null>(null);
+  const [selectedGroupContract, setSelectedGroupContract] = useState<{
+    tenant_code: string;
+    contract_code: string;
+  } | null>(null);
+  const [hopDongNhomList, setHopDongNhomList] = useState<typeof HOP_DONG_NHOM>([]);
   const [uploadedFiles, setUploadedFiles] = useState<FileWithPreview[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
@@ -67,6 +77,7 @@ export default function Home() {
     missingDocuments?: { ma: string; ten: string }[];
     suggestedDocuments?: { ma: string; ten: string }[];
     uploadedDocuments?: { ma: string; ten: string }[];
+    isGroupClaim?: boolean;
   }>({});
   const [ocrResult, setOcrResult] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<{ ma: string; ten: string }[]>([]);
@@ -106,6 +117,7 @@ export default function Home() {
         if (data.status === "success") {
           updateFromAPI(data.data);
           setApiData(data.data);
+          setHopDongNhomList(data.data.hop_dong_nhom ?? []);
         }
       } catch (error) {
         console.error("Failed to load insurance data:", error);
@@ -392,6 +404,175 @@ export default function Home() {
     }
   };
 
+  const handleGroupCalculate = async () => {
+    if (!selectedGroupContract || !treatmentType || uploadedFiles.length === 0) return;
+
+    setIsCalculating(true);
+    setProcessingSteps([]);
+
+    const selectedTreatmentType = TREATMENT_TYPES.find((t) => t.id === treatmentType);
+
+    try {
+      let ocrData: any = null;
+
+      await submitGroupOcr(
+        {
+          tenant_code: selectedGroupContract.tenant_code,
+          contract_code: selectedGroupContract.contract_code,
+          loai_dieu_tri_ma: selectedTreatmentType?.ma || treatmentType,
+          loai_dieu_tri: selectedTreatmentType?.name,
+          files: uploadedFiles.map((f) => f.file),
+        },
+        {
+          onProgress: (message) => {
+            setProcessingSteps((prev) => [
+              ...prev,
+              { type: "progress", message, status: "loading" },
+            ]);
+          },
+          onDocument: (name) => {
+            setProcessingSteps((prev) => [
+              ...prev,
+              { type: "document", message: name, status: "done" },
+            ]);
+          },
+          onResult: (resultEvent) => {
+            ocrData = resultEvent;
+          },
+          onDone: () => {
+            setIsCalculating(false);
+            if (ocrData) {
+              const payload = ocrData.data != null && typeof ocrData.data === "object"
+                ? ocrData.data
+                : ocrData;
+              setOcrResult(payload);
+              setUploadedDocuments(payload.uploaded_documents || []);
+              setMissingDocuments(payload.missing_documents || []);
+              setShowOcrReview(true);
+            } else {
+              setClaimResult({ error: "Không nhận được kết quả OCR từ hệ thống", isGroupClaim: true });
+              setShowResultModal(true);
+            }
+          },
+          onMissingDocuments: (message, docs, uploadedDocs) => {
+            setIsCalculating(false);
+            if (uploadedDocs) setUploadedDocuments(uploadedDocs);
+            setMissingDocuments(docs);
+            setClaimResult({
+              error: message,
+              missingDocuments: docs,
+              uploadedDocuments: uploadedDocs ?? undefined,
+              isGroupClaim: true,
+            });
+            setShowResultModal(true);
+          },
+          onError: (error, missingDocs, suggestedDocs, uploadedDocs) => {
+            setIsCalculating(false);
+            if (uploadedDocs) setUploadedDocuments(uploadedDocs);
+            if (missingDocs) setMissingDocuments(missingDocs);
+            setClaimResult({
+              error,
+              missingDocuments: missingDocs,
+              suggestedDocuments: suggestedDocs,
+              uploadedDocuments: uploadedDocs ?? undefined,
+              isGroupClaim: true,
+            });
+            setShowResultModal(true);
+          },
+        },
+      );
+    } catch (error) {
+      console.error("Group claim error:", error);
+      setIsCalculating(false);
+      setClaimResult({ error: "Có lỗi xảy ra khi xử lý hồ sơ bảo hiểm nhóm", isGroupClaim: true });
+      setShowResultModal(true);
+    }
+  };
+
+  const handleGroupAnalyse = async (dataToAnalyse: any) => {
+    setIsCalculating(true);
+    setProcessingSteps([
+      { type: "progress", message: "Đang gửi dữ liệu phân tích AI...", status: "loading" },
+    ]);
+
+    let resultMarkdown = "";
+
+    const payload = {
+      tenant_code: dataToAnalyse.tenant_code,
+      contract_code: dataToAnalyse.contract_code,
+      loai_dieu_tri_ma: dataToAnalyse.loai_dieu_tri_ma,
+      loai_dieu_tri: dataToAnalyse.loai_dieu_tri,
+      ho_so: dataToAnalyse.ho_so,
+      uploaded_documents: dataToAnalyse.uploaded_documents ?? uploadedDocuments,
+      missing_documents: dataToAnalyse.missing_documents ?? missingDocuments,
+    };
+
+    try {
+      await submitGroupAnalyse(payload, {
+        onProgress: (message) => {
+          setProcessingSteps((prev) => [
+            ...prev,
+            { type: "progress", message, status: "loading" },
+          ]);
+        },
+        onDocument: (name) => {
+          setProcessingSteps((prev) => [
+            ...prev,
+            { type: "document", message: name, status: "done" },
+          ]);
+        },
+        onResult: (resultEvent) => {
+          resultMarkdown = typeof resultEvent === "string" ? resultEvent : (resultEvent.data ?? resultEvent);
+          if (resultEvent.uploaded_documents) setUploadedDocuments(resultEvent.uploaded_documents);
+          if (resultEvent.missing_documents) setMissingDocuments(resultEvent.missing_documents);
+        },
+        onDone: () => {
+          setIsCalculating(false);
+          setShowOcrReview(false);
+          if (resultMarkdown) {
+            setClaimResult({ markdown: resultMarkdown, isGroupClaim: true });
+          } else {
+            setClaimResult({ error: "Không nhận được kết quả từ hệ thống AI", isGroupClaim: true });
+          }
+          setShowResultModal(true);
+        },
+        onMissingDocuments: (message, docs, uploadedDocs) => {
+          setIsCalculating(false);
+          setShowOcrReview(false);
+          if (uploadedDocs) setUploadedDocuments(uploadedDocs);
+          setMissingDocuments(docs);
+          setClaimResult({
+            error: message,
+            missingDocuments: docs,
+            uploadedDocuments: uploadedDocs ?? undefined,
+            isGroupClaim: true,
+          });
+          setShowResultModal(true);
+        },
+        onError: (error, missingDocs, suggestedDocs, uploadedDocs) => {
+          setIsCalculating(false);
+          setShowOcrReview(false);
+          if (uploadedDocs) setUploadedDocuments(uploadedDocs);
+          if (missingDocs) setMissingDocuments(missingDocs);
+          setClaimResult({
+            error,
+            missingDocuments: missingDocs,
+            suggestedDocuments: suggestedDocs,
+            uploadedDocuments: uploadedDocs ?? undefined,
+            isGroupClaim: true,
+          });
+          setShowResultModal(true);
+        },
+      });
+    } catch (error) {
+      console.error("Group analyse error:", error);
+      setIsCalculating(false);
+      setShowOcrReview(false);
+      setClaimResult({ error: "Có lỗi xảy ra khi phân tích quyền lợi bảo hiểm nhóm", isGroupClaim: true });
+      setShowResultModal(true);
+    }
+  };
+
   const hasUploadedFiles = uploadedFiles.length > 0;
   const totalFileCount = uploadedFiles.length;
 
@@ -401,14 +582,30 @@ export default function Home() {
   const isPackageSelectionComplete =
     insurancePackage && (!currentPkg?.hasSubOptions || insuranceSubOption);
 
-  const stepLabels = ["Gói BH", "Điều trị", "Hồ sơ"];
+  const stepLabels = claimType === "nhom"
+    ? ["Hợp đồng", "Điều trị", "Hồ sơ"]
+    : ["Gói BH", "Điều trị", "Hồ sơ"];
   const totalSteps = 3;
 
-  const canProceedToStep2 = isPackageSelectionComplete;
-  const canProceedToStep3 = canProceedToStep2 && treatmentType;
+  const canProceedToStep2 = claimType === "nhom"
+    ? Boolean(selectedGroupContract)
+    : Boolean(isPackageSelectionComplete);
+  const canProceedToStep3 = canProceedToStep2 && Boolean(treatmentType);
 
   const canCalculateClaim =
     canProceedToStep3 && !isLoadingDocumentTypes && hasUploadedFiles;
+
+  const handleClaimTypeChange = (type: "ca_nhan" | "nhom") => {
+    if (type === claimType) return;
+    setClaimType(type);
+    setCurrentStep(1);
+    setInsurancePackage(null);
+    setInsuranceSubOption(null);
+    setSelectedGroupContract(null);
+    setTreatmentType(null);
+    setUploadedFiles([]);
+    setContractFiles([]);
+  };
 
   const handleNext = () => {
     if (currentStep === 1 && canProceedToStep2) {
@@ -475,7 +672,33 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
             {/* Form Area */}
             <div className="lg:col-span-2 flex flex-col h-full bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-              <div className="p-6 pb-2 border-b border-gray-50 flex-shrink-0 bg-white">
+              <div className="p-6 pb-2 border-b border-gray-50 flex-shrink-0 bg-white space-y-4">
+                {/* Claim type toggle */}
+                <div className="flex rounded-xl border border-gray-200 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => handleClaimTypeChange("ca_nhan")}
+                    className={`flex-1 py-2.5 text-sm font-semibold transition-all ${
+                      claimType === "ca_nhan"
+                        ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-inner"
+                        : "bg-white text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >
+                    Bảo hiểm cá nhân
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleClaimTypeChange("nhom")}
+                    className={`flex-1 py-2.5 text-sm font-semibold transition-all ${
+                      claimType === "nhom"
+                        ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-inner"
+                        : "bg-white text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >
+                    Bảo hiểm nhóm
+                  </button>
+                </div>
+
                 <StepIndicator
                   currentStep={currentStep}
                   totalSteps={totalSteps}
@@ -484,7 +707,7 @@ export default function Home() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-                {currentStep === 1 && (
+                {currentStep === 1 && claimType === "ca_nhan" && (
                   <div className="animate-fadeIn">
                     <InsurancePackageSelector
                       selectedPackage={insurancePackage}
@@ -498,6 +721,16 @@ export default function Home() {
                           : undefined
                       }
                       onEditContract={handleEditContract}
+                    />
+                  </div>
+                )}
+
+                {currentStep === 1 && claimType === "nhom" && (
+                  <div className="animate-fadeIn">
+                    <GroupContractSelector
+                      contracts={hopDongNhomList}
+                      value={selectedGroupContract}
+                      onChange={setSelectedGroupContract}
                     />
                   </div>
                 )}
@@ -563,7 +796,7 @@ export default function Home() {
                   <CalculateButton
                     disabled={!canCalculateClaim}
                     loading={isCalculating}
-                    onClick={handleCalculate}
+                    onClick={claimType === "nhom" ? handleGroupCalculate : handleCalculate}
                   />
                 )}
               </div>
@@ -590,9 +823,10 @@ export default function Home() {
         error={claimResult.error}
         missingDocuments={claimResult.missingDocuments}
         suggestedDocuments={claimResult.suggestedDocuments}
-        ocrData={ocrResult}
+        ocrData={claimResult.isGroupClaim ? null : ocrResult}
         uploadedDocuments={claimResult.uploadedDocuments ?? uploadedDocuments}
         allMissingDocuments={claimResult.missingDocuments ?? missingDocuments}
+        hideOcrTab={claimResult.isGroupClaim}
       />
 
       {/* OCR Review Popup */}
@@ -600,7 +834,7 @@ export default function Home() {
         isOpen={showOcrReview}
         onClose={() => setShowOcrReview(false)}
         ocrData={ocrResult}
-        onConfirm={handleAnalyse}
+        onConfirm={claimType === "nhom" ? handleGroupAnalyse : handleAnalyse}
       />
 
       {/* Package Preview Modal */}

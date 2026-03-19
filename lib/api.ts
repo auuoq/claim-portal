@@ -1,4 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://oxidative-unexpedited-vanda.ngrok-free.dev/api';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_TEST_URL ||
+  "http://127.0.0.1:5041/api";
 
 // --- Document type (giấy tờ) ---
 export interface DocType {
@@ -29,9 +31,11 @@ export interface OcrResult {
   loai_dieu_tri?: string;
 }
 
-/** Build URL for lazy-loading original PDF page image. */
+/** Build URL for lazy-loading original PDF page image via internal proxy. */
 export function buildPageImageUrl(sessionId: string, source: string): string {
-  return `${API_BASE_URL}/pages/${sessionId}/${encodeURIComponent(source)}`;
+  const url = `/api/proxy-image?sessionId=${sessionId}&source=${encodeURIComponent(source)}`;
+  console.log("🖼️ Building Proxy Image URL:", url);
+  return url;
 }
 
 
@@ -61,11 +65,23 @@ export interface DocumentTypesResponse {
   data: DocumentType[];
 }
 
+export interface HopDongNhom {
+  tenant_code: string;
+  tenant_name: string;
+  contract_code: string;
+  contract_name: string;
+  provider: string;
+  packages: string[];
+  effective_from: string | null;
+  effective_to: string | null;
+}
+
 export interface InfoResponse {
   status: string;
   data: {
     loai_dieu_tri: TreatmentType[];
     hop_dong: InsurancePackage[];
+    hop_dong_nhom?: HopDongNhom[];
   };
 }
 
@@ -337,6 +353,43 @@ export async function submitClaimOcr(
   }
 
   await handleSSEStream("/claim/ocr", payload, callbacks);
+}
+
+// Submit group claim OCR (POST /claim/group/ocr) — Bước 1: OCR + phân loại
+export async function submitGroupOcr(
+  data: {
+    tenant_code: string;
+    contract_code: string;
+    loai_dieu_tri_ma: string;
+    loai_dieu_tri?: string;
+    files: File[];
+  },
+  callbacks: ClaimStreamCallbacks,
+): Promise<void> {
+  const filesBase64 = await Promise.all(
+    data.files.map(async (file) => ({
+      name: file.name,
+      data: await fileToBase64(file),
+    })),
+  );
+
+  const payload: Record<string, unknown> = {
+    tenant_code: data.tenant_code,
+    contract_code: data.contract_code,
+    loai_dieu_tri_ma: data.loai_dieu_tri_ma,
+    loai_dieu_tri: data.loai_dieu_tri,
+    ho_so: { files: filesBase64 },
+  };
+
+  await handleSSEStream("/claim/group/ocr", payload, callbacks);
+}
+
+// Submit group claim analyse (POST /claim/group/analyse) — Bước 2: Phân tích quyền lợi
+export async function submitGroupAnalyse(
+  payload: Record<string, unknown>,
+  callbacks: ClaimStreamCallbacks,
+): Promise<void> {
+  await handleSSEStream("/claim/group/analyse", payload, callbacks);
 }
 
 // Submit claim for Analyse

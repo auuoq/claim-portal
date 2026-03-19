@@ -184,42 +184,24 @@ export default function OcrReviewPopup({
           </div>
         )}
 
-        {/* Document Lists */}
-        {((ocrData?.uploaded_documents && ocrData.uploaded_documents.length > 0) || (ocrData?.missing_documents && ocrData.missing_documents.length > 0)) && (
+        {/* Document Lists - Only show Missing Documents */}
+        {ocrData?.missing_documents && ocrData.missing_documents.length > 0 && (
           <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-gray-50/50">
             <div className="flex flex-wrap gap-6">
-              {ocrData?.uploaded_documents && ocrData.uploaded_documents.length > 0 && (
-                <div className="flex-1 min-w-[200px]">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                    <FontAwesomeIcon icon={faCheckCircle} className="w-4 h-4 text-green-500" />
-                    Giấy tờ đã nhận
-                  </h4>
-                  <ul className="flex flex-wrap gap-2">
-                    {ocrData.uploaded_documents.map((doc, idx) => (
-                      <li key={idx} className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
-                        {doc.ten}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {ocrData?.missing_documents && ocrData.missing_documents.length > 0 && (
-                <div className="flex-1 min-w-[200px]">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                    <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4 text-amber-500" />
-                    Giấy tờ còn thiếu
-                  </h4>
-                  <ul className="flex flex-wrap gap-2">
-                    {ocrData.missing_documents.map((doc, idx) => (
-                      <li key={idx} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                        {doc.ten}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <div className="flex-1 min-w-[200px]">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                  <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4 text-amber-500" />
+                  Giấy tờ còn thiếu
+                </h4>
+                <ul className="flex flex-wrap gap-2">
+                  {ocrData.missing_documents.map((doc, idx) => (
+                    <li key={idx} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                      {doc.ten}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
         )}
@@ -389,32 +371,137 @@ export default function OcrReviewPopup({
         {/* Full screen markdown (mở khi bấm "Xem toàn màn hình") */}
         {showMarkdownFullScreen && (
           <div
-            className="fixed inset-0 z-[70] flex flex-col bg-white"
+            className="fixed inset-0 z-[70] flex flex-col bg-gray-50"
             role="dialog"
-            aria-label="Nội dung OCR toàn màn hình"
+            aria-label="Xem toàn màn hình"
           >
-            <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-teal-600 text-white">
-              <span className="font-semibold">
-                Nội dung bóc tách — {currentPage ? `${currentPage.file_name} (Trang ${currentPage.page_number})` : "OCR"}
-              </span>
+            {/* Header controls */}
+            <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm">
+              <div className="flex items-center gap-4 flex-1 overflow-x-auto hide-scrollbar">
+                {/* Select Ticket */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Loại giấy tờ:</span>
+                  <select 
+                    value={activeTab}
+                    onChange={(e) => setActiveTab(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white text-gray-800 min-w-[200px] outline-none focus:border-teal-500"
+                  >
+                    {tabs.map((tab) => {
+                      const docName = ocrData?.uploaded_documents?.find((d) => d.ma === tab)?.ten ??
+                        (useFull ? ocrData?.ho_so_full?.[getResolvedKey(tab)]?.[0]?.ten_giay_to : ocrData?.ho_so?.[tab]?.[0]?.ten_giay_to) ??
+                        tab.replace(/_/g, " ");
+                      return <option key={tab} value={tab}>{docName}</option>;
+                    })}
+                  </select>
+                </div>
+
+                {/* Select Page */}
+                {useFull && pages.length > 0 && (
+                  <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Trang:</span>
+                    <button
+                      type="button"
+                      disabled={pageIndex === 0}
+                      onClick={() => setPageIndex((i) => i - 1)}
+                      className="p-1.5 rounded text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed border border-gray-200 bg-white"
+                    >
+                      <FontAwesomeIcon icon={faChevronLeft} className="w-4 h-4" />
+                    </button>
+                    <select
+                      value={pageIndex}
+                      onChange={(e) => setPageIndex(Number(e.target.value))}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white text-gray-800 outline-none focus:border-teal-500"
+                    >
+                      {pages.map((_, i) => (
+                        <option key={i} value={i}>Trang {i + 1}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={pageIndex >= pages.length - 1}
+                      onClick={() => setPageIndex((i) => i + 1)}
+                      className="p-1.5 rounded text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed border border-gray-200 bg-white"
+                    >
+                      <FontAwesomeIcon icon={faChevronRight} className="w-4 h-4" />
+                    </button>
+                    {currentPage && (
+                      <span className="text-xs text-gray-500 ml-2 truncate max-w-[200px]" title={currentPage.file_name}>
+                        {currentPage.file_name}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => setShowMarkdownFullScreen(false)}
-                className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 font-medium"
+                className="mt-3 sm:mt-0 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors border border-gray-200 flex items-center gap-2 whitespace-nowrap"
               >
-                ✕
+                <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
+                Đóng
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-8 md:p-12 max-w-4xl mx-auto">
-              {activeMarkdown ? (
-                <div className="prose prose-lg prose-teal max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                    {activeMarkdown}
-                  </ReactMarkdown>
+            
+            {/* Split View */}
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+              {/* Left Panel: Image */}
+              <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r border-gray-300 bg-gray-200/50 flex flex-col relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full bg-white/80 backdrop-blur px-4 py-2 border-b border-gray-200/50 z-10 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700">Ảnh chứng từ</span>
+                  {imageUrl && (
+                    <a 
+                      href={imageUrl} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="text-teal-600 hover:text-teal-700 text-sm font-medium"
+                      title="Mở ảnh sang tab mới"
+                    >
+                      Mở tab mới
+                    </a>
+                  )}
                 </div>
-              ) : (
-                <p className="text-gray-500">Không có nội dung.</p>
-              )}
+                <div className="flex-1 overflow-auto p-4 pt-12 flex items-center justify-center">
+                  {canShowImage ? (
+                    imageError ? (
+                      <div className="text-center text-gray-500 bg-white p-8 rounded-xl shadow-sm">
+                        <FontAwesomeIcon icon={faImage} className="w-12 h-12 text-gray-300 mb-3" />
+                        <p className="font-medium">Không tải được ảnh trang</p>
+                      </div>
+                    ) : (
+                      <img
+                        src={imageUrl}
+                        alt={`Trang ${currentPage?.page_number}`}
+                        className="max-w-full m-auto shadow-md rounded"
+                        onError={() => setImageError(true)}
+                      />
+                    )
+                  ) : (
+                     <div className="text-center text-gray-500 bg-white p-8 rounded-xl shadow-sm">
+                       <p>Chưa có ảnh cho trang này.</p>
+                     </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Right Panel: Markdown */}
+              <div className="w-full md:w-1/2 bg-white flex flex-col overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200/50 flex-shrink-0">
+                  <span className="text-sm font-semibold text-gray-700">Kết quả nhận diện OCR</span>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 md:p-8">
+                  {activeMarkdown ? (
+                    <div className="prose prose-teal max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                        {activeMarkdown}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500 mt-10 p-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                      <p className="font-medium">Chưa có nội dung OCR cho trang này.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -429,7 +516,7 @@ export default function OcrReviewPopup({
             Sửa file / OCR lại
           </button>
           <button
-            onClick={() => onConfirm(ocrData!)}
+            onClick={() => ocrData && onConfirm(ocrData)}
             disabled={isSubmitting || !ocrData}
             className="px-6 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all font-medium flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
           >
