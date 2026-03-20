@@ -5,16 +5,20 @@ interface SelectionSummaryProps {
     insuranceSubOption: string | null;
     treatmentType: string | null;
     fileCount: number;
+    missingDocuments?: { ma: string; ten: string }[];
+    showMissingDocuments?: boolean;
 }
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClipboardList, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faClipboardList, faCheck, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 export default function SelectionSummary({
     insurancePackage,
     insuranceSubOption,
     treatmentType,
-    fileCount
+    fileCount,
+    missingDocuments = [],
+    showMissingDocuments = false,
 }: SelectionSummaryProps) {
     const packageData = INSURANCE_PACKAGES.find((p: InsurancePackageType) => p.id === insurancePackage);
     const subOptionData = packageData?.subOptions?.find((s: InsuranceSubOption) => s.id === insuranceSubOption);
@@ -74,6 +78,26 @@ export default function SelectionSummary({
                     </div>
                 )}
             </div>
+
+            {showMissingDocuments && missingDocuments.length > 0 && (
+                <div className="mt-5 border-t border-amber-200 pt-4">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4 text-amber-500" />
+                        Chứng từ còn thiếu
+                    </h4>
+                    <ul className="space-y-2">
+                        {missingDocuments.map((doc, idx) => (
+                            <li
+                                key={`${doc.ma}-${idx}`}
+                                className="flex items-start gap-2 text-sm text-amber-700"
+                            >
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />
+                                <span>{doc.ten}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </div>
     );
 }

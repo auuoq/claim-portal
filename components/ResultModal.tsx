@@ -103,6 +103,7 @@ const ocrMarkdownComponents = {
 interface ResultModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSupplementDocuments?: () => void;
   markdownContent?: string;
   error?: string;
   missingDocuments?: { ma: string; ten: string }[];
@@ -116,6 +117,7 @@ interface ResultModalProps {
 export default function ResultModal({
   isOpen,
   onClose,
+  onSupplementDocuments,
   markdownContent,
   error,
   missingDocuments,
@@ -860,10 +862,10 @@ export default function ResultModal({
         {/* Footer */}
         <div className="flex-shrink-0 bg-gray-50 px-6 py-4 border-t border-gray-200 flex gap-3">
           <button
-            onClick={onClose}
+            onClick={error && onSupplementDocuments ? onSupplementDocuments : onClose}
             className="flex-1 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
           >
-            {error ? "Sửa lại" : "Đóng"}
+            {error ? "Bổ sung chứng từ" : "Đóng"}
           </button>
           <button
             onClick={() => {

@@ -82,6 +82,7 @@ export default function Home() {
   const [ocrResult, setOcrResult] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<{ ma: string; ten: string }[]>([]);
   const [missingDocuments, setMissingDocuments] = useState<{ ma: string; ten: string }[]>([]);
+  const [showMissingDocumentsSidebar, setShowMissingDocumentsSidebar] = useState(false);
   const [showOcrReview, setShowOcrReview] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingDocumentTypes, setIsLoadingDocumentTypes] = useState(false);
@@ -200,6 +201,7 @@ export default function Home() {
 
     setIsCalculating(true);
     setProcessingSteps([]);
+    setShowMissingDocumentsSidebar(false);
 
     if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === "default") {
@@ -306,6 +308,7 @@ export default function Home() {
 
   const handleAnalyse = async (dataToAnalyse: any) => {
     setIsCalculating(true);
+    setShowMissingDocumentsSidebar(false);
     setProcessingSteps([
       {
         type: "progress",
@@ -409,6 +412,7 @@ export default function Home() {
 
     setIsCalculating(true);
     setProcessingSteps([]);
+    setShowMissingDocumentsSidebar(false);
 
     const selectedTreatmentType = TREATMENT_TYPES.find((t) => t.id === treatmentType);
 
@@ -491,6 +495,7 @@ export default function Home() {
 
   const handleGroupAnalyse = async (dataToAnalyse: any) => {
     setIsCalculating(true);
+    setShowMissingDocumentsSidebar(false);
     setProcessingSteps([
       { type: "progress", message: "Đang gửi dữ liệu phân tích AI...", status: "loading" },
     ]);
@@ -605,6 +610,8 @@ export default function Home() {
     setTreatmentType(null);
     setUploadedFiles([]);
     setContractFiles([]);
+    setMissingDocuments([]);
+    setShowMissingDocumentsSidebar(false);
   };
 
   const handleNext = () => {
@@ -619,6 +626,13 @@ export default function Home() {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const handleSupplementDocuments = () => {
+    setShowResultModal(false);
+    setShowOcrReview(false);
+    setCurrentStep(3);
+    setShowMissingDocumentsSidebar(true);
   };
 
   const handlePackagePreview = (name: string, content: string) => {
@@ -809,6 +823,12 @@ export default function Home() {
                 insuranceSubOption={insuranceSubOption}
                 treatmentType={treatmentType}
                 fileCount={totalFileCount}
+                missingDocuments={missingDocuments}
+                showMissingDocuments={
+                  currentStep === 3 &&
+                  showMissingDocumentsSidebar &&
+                  missingDocuments.length > 0
+                }
               />
             </div>
           </div>
@@ -819,6 +839,7 @@ export default function Home() {
       <ResultModal
         isOpen={showResultModal}
         onClose={() => setShowResultModal(false)}
+        onSupplementDocuments={handleSupplementDocuments}
         markdownContent={claimResult.markdown}
         error={claimResult.error}
         missingDocuments={claimResult.missingDocuments}
