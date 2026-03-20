@@ -271,7 +271,6 @@ export default function ResultModal({
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
       ></div>
 
       {/* Modal — wider when OCR split view is shown */}
