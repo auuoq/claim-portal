@@ -1,6 +1,6 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_TEST_URL ||
-  "http://10.124.56.98:5043/api";
+  "https://oxidative-unexpedited-vanda.ngrok-free.dev/api";
 
 // --- Document type (giấy tờ) ---
 export interface DocType {
@@ -37,7 +37,6 @@ export function buildPageImageUrl(sessionId: string, source: string): string {
   console.log("🖼️ Building Proxy Image URL:", url);
   return url;
 }
-
 
 // Types for API responses
 export interface TreatmentType {
