@@ -1,6 +1,35 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_TEST_URL ||
-  "http://10.124.56.98:5043/api";
+function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_TEST_URL?.trim();
+  if (envUrl) return envUrl;
+
+  if (typeof window !== "undefined") {
+    const protocol = window.location.protocol || "http:";
+    const hostname = window.location.hostname || "127.0.0.1";
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return "http://127.0.0.1:5041/api";
+    }
+    return `${protocol}//${hostname}:5041/api`;
+  }
+
+  return "http://127.0.0.1:5041/api";
+}
+
+const API_BASE_URL = getApiBaseUrl();
+const REQUEST_TIMEOUT_MS = 15000;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 // --- Document type (giấy tờ) ---
 export interface DocType {
@@ -29,6 +58,12 @@ export interface OcrResult {
   contract_details?: any;
   hop_dong?: { ten: string; goi: string };
   loai_dieu_tri?: string;
+  dich_vu?: any[];
+  anchors?: Record<string, any>;
+  ho_so_chi_co_hoa_don?: boolean;
+  tenant_code?: string;
+  contract_code?: string;
+  loai_dieu_tri_ma?: string;
 }
 
 /** Build URL for lazy-loading original PDF page image via internal proxy. */
@@ -151,7 +186,7 @@ export interface ClaimStreamCallbacks {
 // Fetch insurance packages
 export async function fetchInsuranceInfo(): Promise<InfoResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/info`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/info`, {
       headers: {
         "ngrok-skip-browser-warning": "true",
       },
@@ -172,7 +207,7 @@ export async function fetchDocumentTypes(
   ma: string,
 ): Promise<DocumentTypesResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/document-types?ma=${ma}`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/document-types?ma=${ma}`, {
       headers: {
         "ngrok-skip-browser-warning": "true",
       },
@@ -220,7 +255,7 @@ async function handleSSEStream(
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

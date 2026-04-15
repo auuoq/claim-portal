@@ -319,14 +319,20 @@ export default function Home() {
 
     let resultMarkdown = "";
 
+    const ocrPayload = dataToAnalyse ?? ocrResult ?? {};
+
     // Payload for /analyse: only fields BE expects (do not send ho_so_full / session_id)
     const payload = {
-      hop_dong: dataToAnalyse.hop_dong,
-      ho_so: dataToAnalyse.ho_so,
-      loai_dieu_tri: dataToAnalyse.loai_dieu_tri,
-      contract_details: dataToAnalyse.contract_details,
-      uploaded_documents: dataToAnalyse.uploaded_documents ?? uploadedDocuments,
-      missing_documents: dataToAnalyse.missing_documents ?? missingDocuments,
+      hop_dong: ocrPayload.hop_dong,
+      ho_so: ocrPayload.ho_so,
+      loai_dieu_tri: ocrPayload.loai_dieu_tri,
+      contract_details: ocrPayload.contract_details,
+      uploaded_documents: ocrPayload.uploaded_documents ?? uploadedDocuments,
+      missing_documents: ocrPayload.missing_documents ?? missingDocuments,
+      // Critical pass-through fields from /claim/ocr final_output
+      dich_vu: ocrPayload.dich_vu ?? [],
+      anchors: ocrPayload.anchors ?? {},
+      ho_so_chi_co_hoa_don: ocrPayload.ho_so_chi_co_hoa_don ?? false,
     };
 
     try {
@@ -502,14 +508,20 @@ export default function Home() {
 
     let resultMarkdown = "";
 
+    const ocrPayload = dataToAnalyse ?? ocrResult ?? {};
+
     const payload = {
-      tenant_code: dataToAnalyse.tenant_code,
-      contract_code: dataToAnalyse.contract_code,
-      loai_dieu_tri_ma: dataToAnalyse.loai_dieu_tri_ma,
-      loai_dieu_tri: dataToAnalyse.loai_dieu_tri,
-      ho_so: dataToAnalyse.ho_so,
-      uploaded_documents: dataToAnalyse.uploaded_documents ?? uploadedDocuments,
-      missing_documents: dataToAnalyse.missing_documents ?? missingDocuments,
+      tenant_code: ocrPayload.tenant_code,
+      contract_code: ocrPayload.contract_code,
+      loai_dieu_tri_ma: ocrPayload.loai_dieu_tri_ma,
+      loai_dieu_tri: ocrPayload.loai_dieu_tri,
+      ho_so: ocrPayload.ho_so,
+      uploaded_documents: ocrPayload.uploaded_documents ?? uploadedDocuments,
+      missing_documents: ocrPayload.missing_documents ?? missingDocuments,
+      // Keep OCR enrich outputs for BE compatibility/future use
+      dich_vu: ocrPayload.dich_vu ?? [],
+      anchors: ocrPayload.anchors ?? {},
+      ho_so_chi_co_hoa_don: ocrPayload.ho_so_chi_co_hoa_don ?? false,
     };
 
     try {
