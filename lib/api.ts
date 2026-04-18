@@ -2,20 +2,13 @@ function getApiBaseUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_API_TEST_URL?.trim();
   if (envUrl) return envUrl;
 
-  if (typeof window !== "undefined") {
-    const protocol = window.location.protocol || "http:";
-    const hostname = window.location.hostname || "127.0.0.1";
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return "http://127.0.0.1:5041/api";
-    }
-    return `${protocol}//${hostname}:5041/api`;
-  }
-
-  return "http://127.0.0.1:5041/api";
+  return "https://campimetrical-balmily-kaylene.ngrok-free.dev/api";
 }
 
 const API_BASE_URL = getApiBaseUrl();
 const REQUEST_TIMEOUT_MS = 15000;
+// OCR upload + processing cần nhiều thời gian hơn — set 5 phút
+const OCR_TIMEOUT_MS = 300000;
 
 async function fetchWithTimeout(
   input: RequestInfo | URL,
@@ -238,6 +231,7 @@ async function handleSSEStream(
   endpoint: string,
   payload: Record<string, unknown>,
   callbacks: ClaimStreamCallbacks,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ) {
   console.group(`📤 SENDING TO API (SSE): ${endpoint}`);
   console.log("URL:", `${API_BASE_URL}${endpoint}`);
@@ -262,7 +256,7 @@ async function handleSSEStream(
         "ngrok-skip-browser-warning": "true",
       },
       body: JSON.stringify(payload),
-    });
+    }, timeoutMs);
   } catch (err) {
     console.error("Fetch error:", err);
     callbacks.onError("Không thể kết nối đến máy chủ");
@@ -387,7 +381,7 @@ export async function submitClaimOcr(
     };
   }
 
-  await handleSSEStream("/claim/ocr", payload, callbacks);
+  await handleSSEStream("/claim/ocr", payload, callbacks, OCR_TIMEOUT_MS);
 }
 
 // Submit group claim OCR (POST /claim/group/ocr) — Bước 1: OCR + phân loại
@@ -416,7 +410,7 @@ export async function submitGroupOcr(
     ho_so: { files: filesBase64 },
   };
 
-  await handleSSEStream("/claim/group/ocr", payload, callbacks);
+  await handleSSEStream("/claim/group/ocr", payload, callbacks, OCR_TIMEOUT_MS);
 }
 
 // Submit group claim analyse (POST /claim/group/analyse) — Bước 2: Phân tích quyền lợi

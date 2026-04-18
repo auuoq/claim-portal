@@ -166,6 +166,8 @@ export default function OcrReviewPopup({
                 ([key, value]) => {
                   if (typeof value === "object" && value !== null)
                     return null; // Skip complex objects
+                  if (!(key in contractKeyLabels))
+                    return null; // Only show known fields
                   return (
                     <div key={key} className="flex flex-col">
                       <span className="text-gray-500 font-medium">
