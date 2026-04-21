@@ -1,5 +1,5 @@
 function getApiBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_TEST_URL?.trim();
+  const envUrl = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_TEST_URL)?.trim();
   if (envUrl) return envUrl;
 
   return "https://campimetrical-balmily-kaylene.ngrok-free.dev/api";
