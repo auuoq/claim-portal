@@ -2,7 +2,8 @@ function getApiBaseUrl(): string {
   const envUrl = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_TEST_URL)?.trim();
   if (envUrl) return envUrl;
 
-  return "https://campimetrical-balmily-kaylene.ngrok-free.dev/api";
+  // return "https://campimetrical-balmily-kaylene.ngrok-free.dev/api";
+  return "http://localhost:8008/api";
 }
 
 const API_BASE_URL = getApiBaseUrl();
@@ -57,6 +58,11 @@ export interface OcrResult {
   tenant_code?: string;
   contract_code?: string;
   loai_dieu_tri_ma?: string;
+  // --- New Validation Fields ---
+  status?: string;
+  validation_status?: "ok" | "validation_failed" | "skipped";
+  validation_markdown?: string;
+  validation_result?: any;
 }
 
 /** Build URL for lazy-loading original PDF page image via internal proxy. */

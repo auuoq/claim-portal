@@ -78,6 +78,10 @@ export default function Home() {
     suggestedDocuments?: { ma: string; ten: string }[];
     uploadedDocuments?: { ma: string; ten: string }[];
     isGroupClaim?: boolean;
+    status?: string;
+    validation_status?: string;
+    validation_markdown?: string;
+    validation_result?: any;
   }>({});
   const [ocrResult, setOcrResult] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<{ ma: string; ten: string }[]>([]);
@@ -265,7 +269,20 @@ export default function Home() {
               setOcrResult(payload);
               setUploadedDocuments(payload.uploaded_documents || []);
               setMissingDocuments(payload.missing_documents || []);
-              setShowOcrReview(true);
+              
+              if (payload.status === "missing_documents" && payload.missing_documents && payload.missing_documents.length > 0) {
+                setClaimResult({
+                  error: "Phát hiện thiếu giấy tờ bắt buộc.",
+                  missingDocuments: payload.missing_documents,
+                  uploadedDocuments: payload.uploaded_documents || [],
+                });
+                setShowResultModal(true);
+              } else if (payload.validation_markdown) {
+                setClaimResult({ markdown: payload.validation_markdown });
+                setShowResultModal(true);
+              } else {
+                setShowOcrReview(true);
+              }
             } else {
               setClaimResult({
                 error: "Không nhận được kết quả dữ liệu từ hệ thống OCR",
@@ -458,7 +475,24 @@ export default function Home() {
               setOcrResult(payload);
               setUploadedDocuments(payload.uploaded_documents || []);
               setMissingDocuments(payload.missing_documents || []);
-              setShowOcrReview(true);
+              
+              if (payload.status === "missing_documents" && payload.missing_documents && payload.missing_documents.length > 0) {
+                setClaimResult({
+                  error: "Phát hiện thiếu giấy tờ bắt buộc.",
+                  missingDocuments: payload.missing_documents,
+                  uploadedDocuments: payload.uploaded_documents || [],
+                  isGroupClaim: true,
+                });
+                setShowResultModal(true);
+              } else if (payload.validation_markdown) {
+                setClaimResult({ 
+                  markdown: payload.validation_markdown,
+                  isGroupClaim: true 
+                });
+                setShowResultModal(true);
+              } else {
+                setShowOcrReview(true);
+              }
             } else {
               setClaimResult({ error: "Không nhận được kết quả OCR từ hệ thống", isGroupClaim: true });
               setShowResultModal(true);
