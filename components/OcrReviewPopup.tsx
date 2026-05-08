@@ -4,8 +4,14 @@ import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileContract, faCircleNotch, faXmark, faChevronLeft, faChevronRight, faImage, faExpand, faCheckCircle, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
-import { buildPageImageUrl, type OcrResult, type HoSoPageEntry } from "@/lib/api";
+import { faFileContract, faCircleNotch, faXmark, faChevronLeft, faChevronRight, faImage, faExpand, faTriangleExclamation, faEye } from "@fortawesome/free-solid-svg-icons";
+import {
+  buildPageImageUrl,
+  type OcrResult,
+  type OcrReviewDocumentUploaded,
+  type OcrReviewFailedDocument,
+  type OcrReviewPageEntry,
+} from "@/lib/api";
 
 interface OcrReviewPopupProps {
   isOpen: boolean;
@@ -42,6 +48,38 @@ const markdownComponents = {
   code: ({ node, inline, ...props }: any) => inline ? <code className="bg-gray-100 text-teal-600 px-1.5 py-0.5 rounded text-sm font-mono" {...props} /> : <code className="block bg-gray-100 p-3 rounded-lg text-sm font-mono overflow-x-auto" {...props} />,
 };
 
+type ReviewCardStatus = "clean" | "issue" | "missing";
+
+function getStatusMeta(status: ReviewCardStatus) {
+  if (status === "issue") {
+    return {
+      label: "Có vấn đề",
+      cardClass: "border-rose-200 bg-rose-50/80",
+      dotClass: "bg-rose-500",
+      badgeClass: "bg-rose-100 text-rose-700 border-rose-200",
+      titleClass: "text-rose-900",
+    };
+  }
+
+  if (status === "missing") {
+    return {
+      label: "Còn thiếu",
+      cardClass: "border-amber-200 bg-amber-50/80",
+      dotClass: "bg-amber-500",
+      badgeClass: "bg-amber-100 text-amber-700 border-amber-200",
+      titleClass: "text-amber-900",
+    };
+  }
+
+  return {
+    label: "Đạt",
+    cardClass: "border-emerald-200 bg-emerald-50/80",
+    dotClass: "bg-emerald-500",
+    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    titleClass: "text-emerald-900",
+  };
+}
+
 export default function OcrReviewPopup({
   isOpen,
   onClose,
@@ -50,44 +88,41 @@ export default function OcrReviewPopup({
   isSubmitting = false,
 }: OcrReviewPopupProps) {
   const [activeTab, setActiveTab] = useState<string>("");
+  const [ocrViewerVisible, setOcrViewerVisible] = useState(false);
   const [tabs, setTabs] = useState<string[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showMarkdownFullScreen, setShowMarkdownFullScreen] = useState(false);
+  const reviewPayload = ocrData?.ocr_review;
+  const uploadedDocSummaries: OcrReviewDocumentUploaded[] =
+    reviewPayload?.uploaded_documents ||
+    (ocrData?.uploaded_documents || []).map((doc) => ({
+      doc_type_ma: doc.ma,
+      ten: doc.ten,
+      pages: (ocrData?.ho_so_full?.[doc.ma] || []).map((page) => ({
+        source: page.source,
+        page_number: page.page_number,
+        file_name: page.file_name,
+        content: page.content,
+      })),
+    }));
+  const failedDocuments: OcrReviewFailedDocument[] = reviewPayload?.failed_documents || [];
+  const missingDocSummaries = reviewPayload?.missing_documents || ocrData?.missing_documents || [];
+  const failedDocumentMap = new Map(failedDocuments.map((item) => [item.doc_type_ma, item]));
+  const activeFailedDocument = activeTab ? failedDocumentMap.get(activeTab) : undefined;
 
-  const useFull = Boolean(
-    ocrData?.ho_so_full && Object.keys(ocrData.ho_so_full).length > 0,
-  );
   const docKeys =
-    ocrData?.uploaded_documents && ocrData.uploaded_documents.length > 0
-      ? ocrData.uploaded_documents.map((d) => d.ma)
-      : useFull
-        ? Object.keys(ocrData!.ho_so_full!)
+    uploadedDocSummaries.length > 0
+      ? uploadedDocSummaries.map((d) => d.doc_type_ma)
+      : ocrData?.ho_so_full
+        ? Object.keys(ocrData.ho_so_full)
         : ocrData?.ho_so
           ? Object.keys(ocrData.ho_so)
           : [];
-  function getResolvedKey(tab: string): string {
-    if (!useFull || !ocrData?.ho_so_full) return tab;
-    const direct = ocrData.ho_so_full[tab];
-    if (direct && direct.length > 0) return tab;
-    const tabLower = tab.toLowerCase();
-    const byKey = Object.keys(ocrData.ho_so_full).find((k) => k.toLowerCase() === tabLower);
-    if (byKey && (ocrData.ho_so_full[byKey]?.length ?? 0) > 0) return byKey;
-    const expectedTen = ocrData.uploaded_documents?.find((d) => d.ma === tab)?.ten;
-    if (!expectedTen) return tab;
-    const norm = (s: string) => (s ?? "").trim().toLowerCase();
-    const expectedNorm = norm(expectedTen);
-    const found = Object.entries(ocrData.ho_so_full).find(
-      ([_, arr]) => expectedNorm && norm(arr?.[0]?.ten_giay_to ?? "") === expectedNorm,
-    );
-    return found ? found[0] : tab;
-  }
-  const hoSoFullResolvedKey = activeTab ? getResolvedKey(activeTab) : activeTab;
-  const pages: HoSoPageEntry[] = useFull && hoSoFullResolvedKey
-    ? (ocrData!.ho_so_full![hoSoFullResolvedKey] || [])
-    : [];
-  const currentPage: HoSoPageEntry | null = pages[pageIndex] ?? null;
+  const selectedDocSummary = uploadedDocSummaries.find((doc) => doc.doc_type_ma === activeTab);
+  const pages: OcrReviewPageEntry[] = selectedDocSummary?.pages || [];
+  const currentPage: OcrReviewPageEntry | null = pages[pageIndex] ?? null;
   const imageUrl =
     currentPage && ocrData?.session_id
       ? buildPageImageUrl(ocrData.session_id, currentPage.source)
@@ -101,6 +136,7 @@ export default function OcrReviewPopup({
         if (!activeTab || !docKeys.includes(activeTab)) {
           setActiveTab(docKeys[0]);
           setPageIndex(0);
+          setOcrViewerVisible(false);
         }
       }
     } else {
@@ -122,17 +158,22 @@ export default function OcrReviewPopup({
 
   if (!isOpen) return null;
 
-  const activeContentArray = useFull
-    ? (ocrData?.ho_so_full?.[hoSoFullResolvedKey ?? activeTab] || [])
-    : (ocrData?.ho_so?.[activeTab] || []);
+  const activeContentArray = pages.length
+    ? pages
+    : (ocrData?.ho_so_full?.[activeTab || ""] || ocrData?.ho_so?.[activeTab || ""] || []);
   const activeMarkdownLegacy = activeContentArray
     .map((item: any) => (typeof item === "object" && item?.content != null ? item.content : item))
     .join("\n\n---\n\n");
   const activeMarkdown = currentPage ? currentPage.content : activeMarkdownLegacy;
-  const canShowImage = useFull && currentPage && ocrData?.session_id;
+  const canShowImage = Boolean(currentPage && ocrData?.session_id);
+  const selectedDocTitle =
+    selectedDocSummary?.ten ??
+    ocrData?.ho_so_full?.[activeTab || ""]?.[0]?.ten_giay_to ??
+    ocrData?.ho_so?.[activeTab || ""]?.[0]?.ten_giay_to ??
+    activeTab?.replace(/_/g, " ");
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-[60] overflow-y-auto p-4 animate-fadeIn">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -140,7 +181,7 @@ export default function OcrReviewPopup({
       ></div>
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] min-h-[70vh] flex flex-col overflow-hidden animate-scaleIn">
+      <div className="relative mx-auto my-4 bg-white rounded-2xl shadow-2xl max-w-7xl w-full min-h-[72vh] flex flex-col overflow-hidden animate-scaleIn">
         {/* Header */}
         <div className="flex-shrink-0 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-6 py-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Kết quả đọc hồ sơ (OCR)</h3>
@@ -186,154 +227,356 @@ export default function OcrReviewPopup({
           </div>
         )}
 
-        {/* Document Lists - Only show Missing Documents */}
-        {ocrData?.missing_documents && ocrData.missing_documents.length > 0 && (
-          <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-gray-50/50">
-            <div className="flex flex-wrap gap-6">
-              <div className="flex-1 min-w-[200px]">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                  <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4 text-amber-500" />
-                  Giấy tờ còn thiếu
-                </h4>
-                <ul className="flex flex-wrap gap-2">
-                  {ocrData.missing_documents.map((doc, idx) => (
-                    <li key={idx} className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                      {doc.ten}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar Tabs */}
-          <div className="w-1/4 min-w-[260px] max-w-[320px] bg-gray-50 border-r border-gray-200 flex flex-col overflow-y-auto hide-scrollbar flex-shrink-0">
-            {tabs.map((tab) => {
-              const docName =
-                ocrData?.uploaded_documents?.find((d) => d.ma === tab)?.ten ??
-                (useFull ? ocrData?.ho_so_full?.[getResolvedKey(tab)]?.[0]?.ten_giay_to : ocrData?.ho_so?.[tab]?.[0]?.ten_giay_to) ??
-                tab.replace(/_/g, " ");
-              const count = useFull ? (ocrData?.ho_so_full?.[getResolvedKey(tab)]?.length ?? 0) : null;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`
-                    w-full text-left px-5 py-4 text-sm font-medium transition-colors border-l-4 flex items-center justify-between gap-2
-                    ${activeTab === tab
-                      ? "border-teal-500 text-teal-700 bg-white shadow-sm"
-                      : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }
-                  `}
-                >
-                  <span className="truncate">{docName}</span>
-                  {count != null && (
-                    <span className={`flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${count > 0 ? "bg-teal-100 text-teal-700" : "bg-gray-100 text-gray-500"}`}>
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-            {tabs.length === 0 && (
-              <div className="px-5 py-4 text-sm text-gray-500 text-center">
-                Không tìm thấy tài liệu nào
-              </div>
-            )}
-          </div>
-
-          {/* Main: pagination (when per-page) + content */}
-          <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-            {/* Pagination: Trang 1, 2, 3... rõ ràng + nút xem ảnh / full màn hình */}
-            {useFull && pages.length > 0 && (
-              <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-gray-600 mr-1">Trang:</span>
-                  <div className="flex items-center gap-1 overflow-x-auto max-w-[50vw] hide-scrollbar">
-                    <button
-                      type="button"
-                      disabled={pageIndex === 0}
-                      onClick={() => setPageIndex((i) => i - 1)}
-                      className="p-1.5 rounded text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                      aria-label="Trang trước"
-                    >
-                      <FontAwesomeIcon icon={faChevronLeft} className="w-4 h-4" />
-                    </button>
-                    {pages.map((_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setPageIndex(i)}
-                        className={`
-                          min-w-[2rem] h-8 px-2 rounded text-sm font-medium transition-colors
-                          ${i === pageIndex
-                            ? "bg-teal-500 text-white shadow-sm"
-                            : "text-gray-600 hover:bg-gray-200 bg-white border border-gray-200"}
-                        `}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      disabled={pageIndex >= pages.length - 1}
-                      onClick={() => setPageIndex((i) => i + 1)}
-                      className="p-1.5 rounded text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                      aria-label="Trang sau"
-                    >
-                      <FontAwesomeIcon icon={faChevronRight} className="w-4 h-4" />
-                    </button>
+        <div className="bg-slate-50 px-6 py-5">
+          <div className={`grid gap-5 ${missingDocSummaries.length > 0 ? "xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]" : "grid-cols-1"}`}>
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-base font-semibold text-gray-900">Giấy tờ đã nhận</h4>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Chỉ có 2 trạng thái trong cột này: xanh là hợp lệ, đỏ là đã tải lên nhưng validate bị lỗi.
+                    </p>
                   </div>
-                  {currentPage && (
-                    <span className="text-xs text-gray-500 ml-1 truncate max-w-[180px]" title={currentPage.file_name}>
-                      {currentPage.file_name}
-                    </span>
-                  )}
+                  <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm font-semibold text-gray-700">
+                    {uploadedDocSummaries.length} giấy tờ
+                  </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {canShowImage && (
-                    <button
-                      type="button"
-                      onClick={() => { setImageError(false); setShowImageModal(true); }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium"
-                    >
-                      <FontAwesomeIcon icon={faImage} className="w-4 h-4" />
-                      Xem ảnh trang
-                    </button>
-                  )}
-                  {activeMarkdown && (
-                    <button
-                      type="button"
-                      onClick={() => setShowMarkdownFullScreen(true)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium"
-                      title="Xem toàn màn hình"
-                    >
-                      <FontAwesomeIcon icon={faExpand} className="w-4 h-4" />
-                      Xem toàn màn hình
-                    </button>
+
+                <div className="mt-4 max-h-[52vh] overflow-y-auto pr-2 space-y-3">
+                  {uploadedDocSummaries.map((doc) => {
+                    const hasIssue = failedDocumentMap.has(doc.doc_type_ma);
+                    const meta = getStatusMeta(hasIssue ? "issue" : "clean");
+                    const isActive = activeTab === doc.doc_type_ma;
+                    const failedDoc = failedDocumentMap.get(doc.doc_type_ma);
+                    const pageCount = doc.pages.length;
+
+                    return (
+                      <div
+                        key={doc.doc_type_ma}
+                        className={`rounded-xl border px-4 py-3 transition-all ${meta.cardClass} ${
+                          isActive ? "ring-2 ring-teal-400 shadow-sm" : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              setActiveTab(doc.doc_type_ma);
+                              setOcrViewerVisible(false);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                setActiveTab(doc.doc_type_ma);
+                                setOcrViewerVisible(false);
+                              }
+                            }}
+                            className="min-w-0 flex-1 cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`} />
+                              <h5 className={`text-sm font-semibold ${meta.titleClass}`}>{doc.ten}</h5>
+                            </div>
+
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.badgeClass}`}>
+                                {meta.label}
+                              </span>
+                              <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600">
+                                {pageCount} trang
+                              </span>
+                              {failedDoc && failedDoc.reasons.length > 0 && (
+                                <span className="inline-flex items-center rounded-full border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-700">
+                                  {failedDoc.reasons.length} lỗi
+                                </span>
+                              )}
+                            </div>
+
+                            {failedDoc && failedDoc.reasons.length > 0 && (
+                              <div className="mt-2 rounded-lg border border-white/80 bg-white/85 px-3 py-2 text-sm text-gray-700">
+                                <ul className="space-y-1 text-sm text-rose-800">
+                                  {failedDoc.reasons.map((reason, index) => (
+                                    <li key={`${reason.rule_id}-${index}`}>
+                                      Rule {reason.rule_id}: {reason.message}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-shrink-0 self-center">
+                            {pageCount > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTab(doc.doc_type_ma);
+                                  setPageIndex(0);
+                                  setOcrViewerVisible(true);
+                                }}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-teal-200 bg-white text-teal-700 shadow-sm hover:bg-teal-50"
+                                title="Xem OCR"
+                                aria-label={`Xem OCR ${doc.ten}`}
+                              >
+                                <FontAwesomeIcon icon={faEye} className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-gray-100 text-gray-400">
+                                <FontAwesomeIcon icon={faEye} className="h-4 w-4" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {uploadedDocSummaries.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center text-sm text-gray-500">
+                      Chưa có giấy tờ nào được tải lên.
+                    </div>
                   )}
                 </div>
               </div>
-            )}
 
-            {/* Nội dung OCR (markdown) — không còn split, chỉ 1 cột */}
-            <div className="flex-1 p-6 overflow-y-auto bg-white flex flex-col gap-6 min-h-0">
-              {activeMarkdown ? (
-                <div className="prose prose-teal max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                    {activeMarkdown}
-                  </ReactMarkdown>
+              {selectedDocSummary && ocrViewerVisible && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                  <div
+                    className="absolute inset-0 bg-black/45"
+                    onClick={() => setOcrViewerVisible(false)}
+                  />
+
+                  <div className="relative z-[71] w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl">
+                    <button
+                      type="button"
+                      onClick={() => setOcrViewerVisible(false)}
+                      className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                      aria-label="Đóng nội dung OCR"
+                      title="Đóng"
+                    >
+                      <FontAwesomeIcon icon={faXmark} className="h-4 w-4" />
+                    </button>
+
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h4 className="truncate text-base font-semibold text-gray-900">
+                        Nội dung OCR: {selectedDocTitle}
+                      </h4>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                            getStatusMeta(activeFailedDocument ? "issue" : "clean").badgeClass
+                          }`}
+                        >
+                          {getStatusMeta(activeFailedDocument ? "issue" : "clean").label}
+                        </span>
+                        <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600">
+                          {selectedDocSummary.pages.length} trang OCR
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {canShowImage && (
+                        <button
+                          type="button"
+                          onClick={() => { setImageError(false); setShowImageModal(true); }}
+                          className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          <FontAwesomeIcon icon={faImage} className="w-4 h-4" />
+                          Xem ảnh trang
+                        </button>
+                      )}
+                      {activeMarkdown && (
+                        <button
+                          type="button"
+                          onClick={() => setShowMarkdownFullScreen(true)}
+                          className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          title="Xem toàn màn hình"
+                        >
+                          <FontAwesomeIcon icon={faExpand} className="w-4 h-4" />
+                          Toàn màn hình
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {activeFailedDocument && (
+                    <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50/60 p-4">
+                      <h5 className="text-sm font-semibold text-rose-800 mb-2 flex items-center gap-2">
+                        <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4 text-rose-500" />
+                        Lý do giấy tờ đang có vấn đề
+                      </h5>
+                      <ul className="space-y-2 text-sm text-rose-800">
+                        {activeFailedDocument.reasons.map((reason, index) => (
+                          <li key={`${reason.rule_id}-${index}`}>
+                            <span className="font-semibold">Rule {reason.rule_id}:</span> {reason.message}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {pages.length > 0 && (
+                    <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-gray-600 mr-1">Trang:</span>
+                          <div className="flex items-center gap-1 overflow-x-auto max-w-[50vw]">
+                            <button
+                              type="button"
+                              disabled={pageIndex === 0}
+                              onClick={() => setPageIndex((i) => i - 1)}
+                              className="p-1.5 rounded text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                              aria-label="Trang trước"
+                            >
+                              <FontAwesomeIcon icon={faChevronLeft} className="w-4 h-4" />
+                            </button>
+                            {pages.map((_, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => setPageIndex(i)}
+                                className={`
+                                  min-w-[2rem] h-8 px-2 rounded text-sm font-medium transition-colors
+                                  ${i === pageIndex
+                                    ? "bg-teal-500 text-white shadow-sm"
+                                    : "text-gray-600 hover:bg-gray-200 bg-white border border-gray-200"}
+                                `}
+                              >
+                                {i + 1}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              disabled={pageIndex >= pages.length - 1}
+                              onClick={() => setPageIndex((i) => i + 1)}
+                              className="p-1.5 rounded text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                              aria-label="Trang sau"
+                            >
+                              <FontAwesomeIcon icon={faChevronRight} className="w-4 h-4" />
+                            </button>
+                          </div>
+                          {currentPage && (
+                            <span className="text-xs text-gray-500 ml-1 truncate max-w-[180px]" title={currentPage.file_name}>
+                              {currentPage.file_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+                    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                      <div className="border-b border-gray-200 px-5 py-3">
+                        <h5 className="text-sm font-semibold text-gray-900">Kết quả nhận diện OCR</h5>
+                        <p className="text-xs text-gray-500">Nội dung văn bản đã OCR của giấy tờ đang chọn.</p>
+                      </div>
+                      <div className="max-h-[50vh] overflow-y-auto px-5 py-5">
+                        {activeMarkdown ? (
+                          <div className="prose prose-teal max-w-none">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                              {activeMarkdown}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-500 py-10 px-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <p className="font-medium">Chưa có nội dung OCR cho loại giấy tờ này.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 shadow-sm overflow-hidden">
+                      <div className="border-b border-gray-200 bg-white px-5 py-3">
+                        <h5 className="text-sm font-semibold text-gray-900">Ảnh gốc theo trang</h5>
+                        <p className="text-xs text-gray-500">Bấm nút xem ảnh để đối chiếu trực tiếp với chứng từ gốc.</p>
+                      </div>
+                      <div className="flex min-h-[360px] items-center justify-center p-4">
+                        {canShowImage ? (
+                          imageError ? (
+                            <div className="text-center text-gray-500 bg-white p-8 rounded-xl shadow-sm">
+                              <FontAwesomeIcon icon={faImage} className="w-12 h-12 text-gray-300 mb-3" />
+                              <p className="font-medium">Không tải được ảnh trang</p>
+                            </div>
+                          ) : (
+                            <img
+                              src={imageUrl}
+                              alt={`Trang ${currentPage?.page_number}`}
+                              className="max-h-[42vh] w-auto rounded-xl border border-gray-200 bg-white object-contain shadow-sm"
+                              onError={() => setImageError(true)}
+                            />
+                          )
+                        ) : (
+                          <div className="text-center text-gray-500 bg-white p-8 rounded-xl shadow-sm">
+                            <FontAwesomeIcon icon={faImage} className="w-12 h-12 text-gray-300 mb-3" />
+                            <p className="font-medium">Chọn giấy tờ có OCR để xem nội dung và ảnh gốc.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center text-gray-500 py-10 px-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  <p className="font-medium">Chưa có nội dung OCR cho loại giấy tờ này.</p>
-                  <p className="text-sm mt-1">Dữ liệu có thể đang được xử lý hoặc loại giấy tờ này không có trang nào được phân loại.</p>
+                </div>
+              )}
+
+              {selectedDocSummary && !ocrViewerVisible && (
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center shadow-sm">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-teal-600">
+                    <FontAwesomeIcon icon={faEye} className="h-5 w-5" />
+                  </div>
+                  <h4 className="mt-4 text-base font-semibold text-gray-900">
+                    Chưa mở nội dung OCR của giấy tờ
+                  </h4>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Bấm vào biểu tượng con mắt ở từng giấy tờ để xem nội dung OCR và ảnh chứng từ tương ứng.
+                  </p>
                 </div>
               )}
             </div>
+
+            {missingDocSummaries.length > 0 && (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-base font-semibold text-amber-900">Giấy tờ còn thiếu</h4>
+                      <p className="mt-1 text-sm text-amber-700">
+                        Đây là các giấy tờ bắt buộc chưa được tải lên nên chưa có dữ liệu OCR.
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-800">
+                      {missingDocSummaries.length} giấy tờ
+                    </span>
+                  </div>
+
+                  <div className="mt-4 max-h-[52vh] overflow-y-auto pr-2 space-y-3">
+                    {missingDocSummaries.map((doc, idx) => {
+                      const meta = getStatusMeta("missing");
+                      return (
+                        <div
+                          key={`${doc.ma}-${idx}`}
+                          className={`rounded-2xl border p-4 ${meta.cardClass}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`} />
+                            <h5 className={`text-sm font-semibold ${meta.titleClass}`}>{doc.ten}</h5>
+                          </div>
+                          <div className="mt-2">
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.badgeClass}`}>
+                              {meta.label}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -389,8 +632,9 @@ export default function OcrReviewPopup({
                     className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white text-gray-800 min-w-[200px] outline-none focus:border-teal-500"
                   >
                     {tabs.map((tab) => {
-                      const docName = ocrData?.uploaded_documents?.find((d) => d.ma === tab)?.ten ??
-                        (useFull ? ocrData?.ho_so_full?.[getResolvedKey(tab)]?.[0]?.ten_giay_to : ocrData?.ho_so?.[tab]?.[0]?.ten_giay_to) ??
+                      const docName = uploadedDocSummaries.find((d) => d.doc_type_ma === tab)?.ten ??
+                        ocrData?.ho_so_full?.[tab]?.[0]?.ten_giay_to ??
+                        ocrData?.ho_so?.[tab]?.[0]?.ten_giay_to ??
                         tab.replace(/_/g, " ");
                       return <option key={tab} value={tab}>{docName}</option>;
                     })}
@@ -398,7 +642,7 @@ export default function OcrReviewPopup({
                 </div>
 
                 {/* Select Page */}
-                {useFull && pages.length > 0 && (
+                {pages.length > 0 && (
                   <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Trang:</span>
                     <button

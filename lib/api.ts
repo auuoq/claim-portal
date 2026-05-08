@@ -1,10 +1,4 @@
-function getApiBaseUrl(): string {
-  const envUrl = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_TEST_URL)?.trim();
-  if (envUrl) return envUrl;
-
-  // return "https://campimetrical-balmily-kaylene.ngrok-free.dev/api";
-  return "http://localhost:8008/api";
-}
+import { getApiBaseUrl } from "@/lib/runtime-config";
 
 const API_BASE_URL = getApiBaseUrl();
 const REQUEST_TIMEOUT_MS = 15000;
@@ -40,6 +34,42 @@ export interface HoSoPageEntry {
   ten_giay_to: string;
 }
 
+export interface OcrReviewPageEntry {
+  content: string;
+  source: string;
+  page_number: number | null;
+  file_name: string;
+}
+
+export interface OcrReviewReason {
+  rule_id: string;
+  message: string;
+}
+
+export interface OcrReviewDocumentUploaded {
+  doc_type_ma: string;
+  ten: string;
+  pages: OcrReviewPageEntry[];
+}
+
+export interface OcrReviewFailedDocument {
+  doc_type_ma: string;
+  ten: string;
+  reasons: OcrReviewReason[];
+  pages: OcrReviewPageEntry[];
+}
+
+export interface OcrReviewPayload {
+  counts: {
+    uploaded: number;
+    missing: number;
+    failed: number;
+  };
+  uploaded_documents: OcrReviewDocumentUploaded[];
+  missing_documents: DocType[];
+  failed_documents: OcrReviewFailedDocument[];
+}
+
 export interface OcrResult {
   session_id?: string;
   ho_so: Record<string, any[]>;
@@ -60,9 +90,8 @@ export interface OcrResult {
   loai_dieu_tri_ma?: string;
   // --- New Validation Fields ---
   status?: string;
-  validation_status?: "ok" | "validation_failed" | "skipped";
-  validation_markdown?: string;
   validation_result?: any;
+  ocr_review?: OcrReviewPayload;
 }
 
 /** Build URL for lazy-loading original PDF page image via internal proxy. */
@@ -318,7 +347,6 @@ async function handleSSEStream(
               event.missing_documents,
               event.uploaded_documents,
             );
-            return;
           } else if (event.event === "error") {
             callbacks.onError(
               event.message,

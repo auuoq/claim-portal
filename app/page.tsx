@@ -269,20 +269,9 @@ export default function Home() {
               setOcrResult(payload);
               setUploadedDocuments(payload.uploaded_documents || []);
               setMissingDocuments(payload.missing_documents || []);
-              
-              if (payload.status === "missing_documents" && payload.missing_documents && payload.missing_documents.length > 0) {
-                setClaimResult({
-                  error: "Phát hiện thiếu giấy tờ bắt buộc.",
-                  missingDocuments: payload.missing_documents,
-                  uploadedDocuments: payload.uploaded_documents || [],
-                });
-                setShowResultModal(true);
-              } else if (payload.validation_markdown) {
-                setClaimResult({ markdown: payload.validation_markdown });
-                setShowResultModal(true);
-              } else {
-                setShowOcrReview(true);
-              }
+              setShowMissingDocumentsSidebar(Boolean(payload.missing_documents?.length));
+              setShowResultModal(false);
+              setShowOcrReview(true);
             } else {
               setClaimResult({
                 error: "Không nhận được kết quả dữ liệu từ hệ thống OCR",
@@ -291,15 +280,13 @@ export default function Home() {
             }
           },
           onMissingDocuments: (message, docs, uploadedDocs) => {
-            setIsCalculating(false);
             if (uploadedDocs) setUploadedDocuments(uploadedDocs);
             setMissingDocuments(docs);
-            setClaimResult({
-              error: message,
-              missingDocuments: docs,
-              uploadedDocuments: uploadedDocs ?? undefined,
-            });
-            setShowResultModal(true);
+            setShowMissingDocumentsSidebar(true);
+            setProcessingSteps((prev) => [
+              ...prev,
+              { type: "progress", message, status: "done" },
+            ]);
           },
           onError: (error, missingDocs, suggestedDocs, uploadedDocs) => {
             setIsCalculating(false);
@@ -475,40 +462,22 @@ export default function Home() {
               setOcrResult(payload);
               setUploadedDocuments(payload.uploaded_documents || []);
               setMissingDocuments(payload.missing_documents || []);
-              
-              if (payload.status === "missing_documents" && payload.missing_documents && payload.missing_documents.length > 0) {
-                setClaimResult({
-                  error: "Phát hiện thiếu giấy tờ bắt buộc.",
-                  missingDocuments: payload.missing_documents,
-                  uploadedDocuments: payload.uploaded_documents || [],
-                  isGroupClaim: true,
-                });
-                setShowResultModal(true);
-              } else if (payload.validation_markdown) {
-                setClaimResult({ 
-                  markdown: payload.validation_markdown,
-                  isGroupClaim: true 
-                });
-                setShowResultModal(true);
-              } else {
-                setShowOcrReview(true);
-              }
+              setShowMissingDocumentsSidebar(Boolean(payload.missing_documents?.length));
+              setShowResultModal(false);
+              setShowOcrReview(true);
             } else {
               setClaimResult({ error: "Không nhận được kết quả OCR từ hệ thống", isGroupClaim: true });
               setShowResultModal(true);
             }
           },
           onMissingDocuments: (message, docs, uploadedDocs) => {
-            setIsCalculating(false);
             if (uploadedDocs) setUploadedDocuments(uploadedDocs);
             setMissingDocuments(docs);
-            setClaimResult({
-              error: message,
-              missingDocuments: docs,
-              uploadedDocuments: uploadedDocs ?? undefined,
-              isGroupClaim: true,
-            });
-            setShowResultModal(true);
+            setShowMissingDocumentsSidebar(true);
+            setProcessingSteps((prev) => [
+              ...prev,
+              { type: "progress", message, status: "done" },
+            ]);
           },
           onError: (error, missingDocs, suggestedDocs, uploadedDocs) => {
             setIsCalculating(false);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getApiBaseUrl } from "@/lib/runtime-config";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -9,10 +10,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Missing parameters", { status: 400 });
   }
 
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_API_TEST_URL ||
-    "https://campimetrical-balmily-kaylene.ngrok-free.dev/api";
+  const API_BASE_URL = getApiBaseUrl();
 
   const targetUrl = `${API_BASE_URL}/pages/${sessionId}/${encodeURIComponent(source)}`;
 
