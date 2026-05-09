@@ -261,36 +261,61 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-// Generic SSE POST function
+// Generic SSE POST function — accepts either a JSON-serializable object or FormData.
+// When a FormData body is passed, the browser sets Content-Type (with boundary) automatically.
 async function handleSSEStream(
   endpoint: string,
-  payload: Record<string, unknown>,
+  body: Record<string, unknown> | FormData,
   callbacks: ClaimStreamCallbacks,
   timeoutMs = REQUEST_TIMEOUT_MS,
 ) {
+  const isFormData = body instanceof FormData;
+
   console.group(`📤 SENDING TO API (SSE): ${endpoint}`);
   console.log("URL:", `${API_BASE_URL}${endpoint}`);
-  const summaryPayload = { ...payload };
-  if (summaryPayload.ho_so && (summaryPayload.ho_so as any).files) {
-    summaryPayload.ho_so = {
-      files: (summaryPayload.ho_so as any).files.map((f: any) => ({
-        name: f.name,
-        data: `${f.data?.substring(0, 50)}... (${f.data?.length} chars)`,
-      })),
-    };
+  if (isFormData) {
+    const entrySummary: Record<string, string> = {};
+    body.forEach((value, key) => {
+      const desc =
+        value instanceof File
+          ? `File(name=${value.name}, size=${value.size}B, type=${value.type || "?"})`
+          : `text(${String(value).slice(0, 80)})`;
+      entrySummary[key] = entrySummary[key]
+        ? `${entrySummary[key]}; ${desc}`
+        : desc;
+    });
+    console.log("Payload (FormData entries):", entrySummary);
+  } else {
+    const summaryPayload = { ...body } as Record<string, unknown>;
+    if (summaryPayload.ho_so && (summaryPayload.ho_so as any).files) {
+      summaryPayload.ho_so = {
+        files: (summaryPayload.ho_so as any).files.map((f: any) => ({
+          name: f.name,
+          data: `${f.data?.substring(0, 50)}... (${f.data?.length} chars)`,
+        })),
+      };
+    }
+    console.log("Payload (maybe truncated):", summaryPayload);
   }
-  console.log("Payload (maybe truncated):", summaryPayload);
   console.groupEnd();
+
+  const headers: Record<string, string> = {
+    "ngrok-skip-browser-warning": "true",
+  };
+  let requestBody: BodyInit;
+  if (isFormData) {
+    requestBody = body;
+  } else {
+    headers["Content-Type"] = "application/json";
+    requestBody = JSON.stringify(body);
+  }
 
   let response: Response;
   try {
     response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "true",
-      },
-      body: JSON.stringify(payload),
+      headers,
+      body: requestBody,
     }, timeoutMs);
   } catch (err) {
     console.error("Fetch error:", err);
@@ -370,7 +395,8 @@ async function handleSSEStream(
   }
 }
 
-// Submit claim for OCR
+// Submit claim for OCR — uses multipart/form-data so binary files travel raw
+// instead of being base64-encoded inside JSON (smaller payload, friendlier to tunnels).
 export async function submitClaimOcr(
   data: {
     hopDong: string;
@@ -381,41 +407,14 @@ export async function submitClaimOcr(
   },
   callbacks: ClaimStreamCallbacks,
 ): Promise<void> {
-  const filesBase64 = await Promise.all(
-    data.files.map(async (file) => ({
-      name: file.name,
-      data: await fileToBase64(file),
-    })),
-  );
+  const fd = new FormData();
+  fd.append("hop_dong_ten", data.hopDong);
+  fd.append("hop_dong_goi", data.goi ?? "");
+  fd.append("loai_dieu_tri", data.loai_dieu_tri);
+  data.files.forEach((file) => fd.append("ho_so_files", file, file.name));
+  data.contractFiles?.forEach((file) => fd.append("gcn_files", file, file.name));
 
-  const contractFilesBase64 =
-    data.contractFiles && data.contractFiles.length > 0
-      ? await Promise.all(
-          data.contractFiles.map(async (f) => ({
-            name: f.name,
-            data: await fileToBase64(f),
-          })),
-        )
-      : null;
-
-  const payload: Record<string, unknown> = {
-    hop_dong: {
-      ten: data.hopDong,
-      goi: data.goi,
-    },
-    loai_dieu_tri: data.loai_dieu_tri,
-    ho_so: {
-      files: filesBase64,
-    },
-  };
-
-  if (contractFilesBase64) {
-    payload.hop_dong_ca_nhan = {
-      files: contractFilesBase64,
-    };
-  }
-
-  await handleSSEStream("/claim/ocr", payload, callbacks, OCR_TIMEOUT_MS);
+  await handleSSEStream("/claim/ocr", fd, callbacks, OCR_TIMEOUT_MS);
 }
 
 // Submit group claim OCR (POST /claim/group/ocr) — Bước 1: OCR + phân loại
