@@ -52,6 +52,23 @@ export interface OcrReviewDocumentUploaded {
   pages: OcrReviewPageEntry[];
 }
 
+// --- Structured extraction (response field `extracted_documents`) ---
+export interface ExtractedDocumentPage {
+  file_name: string;
+  page_number: number;
+}
+
+export interface ExtractedDocument {
+  /** Document type code (matches doc_type_ma / DocType.ma). */
+  doc_type: string;
+  /** Schema code used to extract the fields (e.g. boi_thuong_03). */
+  schema_code?: string;
+  /** Pages of the input that belong to this document. */
+  pages?: ExtractedDocumentPage[];
+  /** Structured fields extracted for the document (shared across pages). */
+  fields?: Record<string, unknown>;
+}
+
 export interface OcrReviewFailedDocument {
   doc_type_ma: string;
   ten: string;
@@ -74,6 +91,8 @@ export interface OcrResult {
   session_id?: string;
   ho_so: Record<string, any[]>;
   ho_so_full?: Record<string, HoSoPageEntry[]>;
+  /** Structured extraction result, one entry per uploaded document. */
+  extracted_documents?: ExtractedDocument[];
   stats?: { total_pages: number; processed: number; removed: number };
   removed_pages?: Array<{ source: string; reason: string }>;
   classified_doc_types?: string[];

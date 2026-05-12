@@ -12,6 +12,8 @@ import {
   type OcrReviewFailedDocument,
   type OcrReviewPageEntry,
 } from "@/lib/api";
+import StructuredFieldsView from "./StructuredFieldsView";
+import { DEMO_FIELDS_BY_DOC_TYPE } from "@/lib/demoFields";
 
 interface OcrReviewPopupProps {
   isOpen: boolean;
@@ -165,6 +167,16 @@ export default function OcrReviewPopup({
     .map((item: any) => (typeof item === "object" && item?.content != null ? item.content : item))
     .join("\n\n---\n\n");
   const activeMarkdown = currentPage ? currentPage.content : activeMarkdownLegacy;
+  const extractedDoc = ocrData?.extracted_documents?.find(
+    (d) => d.doc_type === activeTab,
+  );
+  const activeFields: Record<string, unknown> | undefined =
+    (extractedDoc?.fields as Record<string, unknown> | undefined) ??
+    DEMO_FIELDS_BY_DOC_TYPE[activeTab || ""];
+  const hasStructuredFields = Boolean(
+    activeFields && typeof activeFields === "object" && Object.keys(activeFields).length > 0,
+  );
+  const hasOcrContent = hasStructuredFields || Boolean(activeMarkdown);
   const canShowImage = Boolean(currentPage && ocrData?.session_id);
   const selectedDocTitle =
     selectedDocSummary?.ten ??
@@ -314,7 +326,7 @@ export default function OcrReviewPopup({
                                 onClick={() => {
                                   setActiveTab(doc.doc_type_ma);
                                   setPageIndex(0);
-                                  setOcrViewerVisible(true);
+                                  setShowMarkdownFullScreen(true);
                                 }}
                                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-teal-200 bg-white text-teal-700 shadow-sm hover:bg-teal-50"
                                 title="Xem OCR"
@@ -389,7 +401,7 @@ export default function OcrReviewPopup({
                           Xem ảnh trang
                         </button>
                       )}
-                      {activeMarkdown && (
+                      {hasOcrContent && (
                         <button
                           type="button"
                           onClick={() => setShowMarkdownFullScreen(true)}
@@ -473,10 +485,16 @@ export default function OcrReviewPopup({
                     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
                       <div className="border-b border-gray-200 px-5 py-3">
                         <h5 className="text-sm font-semibold text-gray-900">Kết quả nhận diện OCR</h5>
-                        <p className="text-xs text-gray-500">Nội dung văn bản đã OCR của giấy tờ đang chọn.</p>
+                        <p className="text-xs text-gray-500">
+                          {hasStructuredFields
+                            ? "Trường dữ liệu đã bóc tách của giấy tờ đang chọn."
+                            : "Nội dung văn bản đã OCR của giấy tờ đang chọn."}
+                        </p>
                       </div>
                       <div className="max-h-[50vh] overflow-y-auto px-5 py-5">
-                        {activeMarkdown ? (
+                        {hasStructuredFields ? (
+                          <StructuredFieldsView data={activeFields} />
+                        ) : activeMarkdown ? (
                           <div className="prose prose-teal max-w-none">
                             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                               {activeMarkdown}
@@ -729,13 +747,15 @@ export default function OcrReviewPopup({
                 </div>
               </div>
               
-              {/* Right Panel: Markdown */}
+              {/* Right Panel: Structured fields (fallback: markdown) */}
               <div className="w-full md:w-1/2 bg-white flex flex-col overflow-hidden">
                 <div className="bg-gray-50 px-4 py-2 border-b border-gray-200/50 flex-shrink-0">
                   <span className="text-sm font-semibold text-gray-700">Kết quả nhận diện OCR</span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 md:p-8">
-                  {activeMarkdown ? (
+                  {hasStructuredFields ? (
+                    <StructuredFieldsView data={activeFields} />
+                  ) : activeMarkdown ? (
                     <div className="prose prose-teal max-w-none">
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                         {activeMarkdown}

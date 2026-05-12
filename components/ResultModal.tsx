@@ -21,6 +21,8 @@ import {
   type OcrResult,
   type HoSoPageEntry,
 } from "@/lib/api";
+import StructuredFieldsView from "./StructuredFieldsView";
+import { DEMO_FIELDS_BY_DOC_TYPE } from "@/lib/demoFields";
 
 const ocrMarkdownComponents = {
   h1: ({ node, ...props }: any) => (
@@ -186,6 +188,19 @@ export default function ResultModal({
           typeof x === "object" && x?.content != null ? x.content : x,
         )
         .join("\n\n---\n\n");
+  const ocrActiveDocType = ocrResolvedKey ?? ocrTab ?? "";
+  const ocrExtractedDoc = ocrData?.extracted_documents?.find(
+    (d) => d.doc_type === ocrActiveDocType,
+  );
+  const ocrActiveFields: Record<string, unknown> | undefined =
+    (ocrExtractedDoc?.fields as Record<string, unknown> | undefined) ??
+    DEMO_FIELDS_BY_DOC_TYPE[ocrActiveDocType];
+  const hasOcrStructuredFields = Boolean(
+    ocrActiveFields &&
+      typeof ocrActiveFields === "object" &&
+      Object.keys(ocrActiveFields).length > 0,
+  );
+  const hasOcrContent = hasOcrStructuredFields || Boolean(ocrActiveMarkdown);
 
   useEffect(() => {
     if (isOpen && ocrDocKeys.length > 0) {
@@ -621,7 +636,7 @@ export default function ResultModal({
                           Xem ảnh trang
                         </button>
                       )}
-                      {ocrActiveMarkdown && (
+                      {hasOcrContent && (
                         <button
                           type="button"
                           onClick={() => setShowOcrMarkdownFullScreen(true)}
@@ -674,7 +689,9 @@ export default function ResultModal({
                       </div>
                     </div>
                   )}
-                  {ocrActiveMarkdown ? (
+                  {hasOcrStructuredFields ? (
+                    <StructuredFieldsView data={ocrActiveFields} />
+                  ) : ocrActiveMarkdown ? (
                     <div className="prose prose-teal max-w-none">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
@@ -836,10 +853,12 @@ export default function ResultModal({
                 )}
               </div>
 
-              {/* Right: Markdown Content */}
+              {/* Right: Structured fields (fallback: markdown) */}
               <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-white">
                 <div className="max-w-3xl mx-auto">
-                  {ocrActiveMarkdown ? (
+                  {hasOcrStructuredFields ? (
+                    <StructuredFieldsView data={ocrActiveFields} />
+                  ) : ocrActiveMarkdown ? (
                     <div className="prose prose-teal max-w-none">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
