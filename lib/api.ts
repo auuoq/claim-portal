@@ -89,7 +89,7 @@ export interface OcrReviewPayload {
 
 export interface OcrResult {
   session_id?: string;
-  ho_so: Record<string, any[]>;
+  ho_so?: Record<string, any[]>;
   ho_so_full?: Record<string, HoSoPageEntry[]>;
   /** Structured extraction result, one entry per uploaded document. */
   extracted_documents?: ExtractedDocument[];
