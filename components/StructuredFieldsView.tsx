@@ -200,7 +200,7 @@ function renderPrimitive(key: string, value: unknown): React.ReactNode {
     }
     return <span>{formatNumber(value)}</span>;
   }
-  return <span>{String(value)}</span>;
+  return <span className="whitespace-pre-line">{String(value)}</span>;
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
