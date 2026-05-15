@@ -136,11 +136,30 @@ const FIELD_LABELS: Record<string, string> = {
   fields: "Trường dữ liệu",
 };
 
+/** NFC avoids NFD “base + combining marks” which often triggers per-glyph fallback fonts for Vietnamese. */
+function normalizeViText(text: string): string {
+  if (!text) return text;
+  try {
+    return text.normalize("NFC");
+  } catch {
+    return text;
+  }
+}
+
 function humanize(key: string): string {
-  if (FIELD_LABELS[key]) return FIELD_LABELS[key];
-  return key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (l) => l.toUpperCase());
+  if (FIELD_LABELS[key]) return normalizeViText(FIELD_LABELS[key]);
+
+  // Snake_case ASCII keys → Title Case. For non-ASCII keys (already a label)
+  // we DO NOT run \b\w title-casing because the regex only matches ASCII word
+  // chars and ends up uppercasing letters after Vietnamese diacritics
+  // (e.g. "Tên bệnh viện" → "TêN BệNh ViệN").
+  const isSnakeCaseAscii = /^[a-z0-9_]+$/i.test(key);
+  if (isSnakeCaseAscii) {
+    return normalizeViText(
+      key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+    );
+  }
+  return normalizeViText(key);
 }
 
 function isCurrencyKey(key: string): boolean {
@@ -200,7 +219,7 @@ function renderPrimitive(key: string, value: unknown): React.ReactNode {
     }
     return <span>{formatNumber(value)}</span>;
   }
-  return <span className="whitespace-pre-line">{String(value)}</span>;
+  return <span className="whitespace-pre-line">{normalizeViText(String(value))}</span>;
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -273,7 +292,7 @@ function FieldNode({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-xs font-semibold uppercase tracking-wide text-teal-700 mb-2">
+    <div className="text-sm font-semibold text-teal-700 mb-2">
       {children}
     </div>
   );
@@ -282,7 +301,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function KVRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-1 sm:gap-3 items-start">
-      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 pt-0.5">
+      <div className="text-sm font-semibold text-gray-500 pt-0.5">
         {label}
       </div>
       <div className="text-sm text-gray-900 font-medium wrap-break-word">{value}</div>
@@ -386,7 +405,7 @@ function ArrayOfObjectsView({
               {allKeys.map((k) => (
                 <th
                   key={k}
-                  className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 border-b border-gray-200"
+                  className="px-3 py-2 text-left text-sm font-semibold text-gray-600 border-b border-gray-200"
                 >
                   {humanize(k)}
                 </th>
